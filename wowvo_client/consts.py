@@ -77,7 +77,7 @@ VOICE_MODEL_MAP = {
     "gorloc_male": "furbolg_male",
 
     #dragon
-    "dragon_female":"demon_male",
+    "dragon_female":"tauren_female",
     "dragon_male":"demon_male",
 
 
@@ -94,7 +94,11 @@ VOICE_MODEL_MAP = {
 
     "earthen":"dwarf_male",
     "naaru":"tauren_female",
-
+    "murloc":"demon_female",
+    "fire_elemental":"demon_male",
+    "water_elemental":"demon_male",
+    "earth_elemental":"demon_male",
+    "wind_elemental":"demon_male",
     # defaults map to themselves (if not overridden)
 }
 
@@ -103,6 +107,7 @@ VOICE_MODEL_MAP = {
 NPC_EFFECTS = {
     302: "ghost",
     392: "ghost",
+    2076:"bubbles",
     2227:"ghost",
     2278:"ghost",
     4606:"ghost",
@@ -121,9 +126,14 @@ NPC_EFFECTS = {
     16015:"demon",
     14354:"demon",
     16201: "ghost",
+    16388: "ghost",
+    16813: "ghost",
+    16814: "ghost",
+    16815: "ghost",
     17712: "ghost",
     17674:"ghost",
     17877:"ancient",
+    187565:"ancient",
     18369:"small",
     18445:"small",
     18687:"ghost",
@@ -133,6 +143,8 @@ NPC_EFFECTS = {
     21318:"ghost",
     21330:"demon",
     22103:"demon",
+    26117:"demon",
+    26206:"demon",
     24910:"ghost",
     26501:"ghost",
     27337:"ghost",
