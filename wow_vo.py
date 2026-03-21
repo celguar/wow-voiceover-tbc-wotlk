@@ -79,8 +79,8 @@ with gr.Blocks(title="WoW Voiceover WebUI") as app:
                             minimum=-10,
                             maximum=10,
                             label="Length penalty",
-                            value=1,
-                            interactive=True,
+                            value=1.0,
+                            interactive=False,
                         )
                         repetition_penalty_single = gr.Slider(
                             minimum=0,
@@ -94,7 +94,7 @@ with gr.Blocks(title="WoW Voiceover WebUI") as app:
                             minimum=1,
                             maximum=100,
                             label="Top k",
-                            value=1,
+                            value=50,
                             step = 1,
                             interactive=True,
                         )
@@ -102,7 +102,7 @@ with gr.Blocks(title="WoW Voiceover WebUI") as app:
                             minimum=0,
                             maximum=1,
                             label="Top p",
-                            value=1.0,
+                            value=0.85,
                             interactive=True,
                         )
                         speed_single = gr.Slider(
@@ -269,8 +269,8 @@ with gr.Blocks(title="WoW Voiceover WebUI") as app:
                             minimum=-10,
                             maximum=10,
                             label="Length penalty",
-                            value=1,
-                            interactive=True,
+                            value=1.0,
+                            interactive=False,
                         )
                         repetition_penalty_gossip = gr.Slider(
                             minimum=0,
@@ -284,7 +284,7 @@ with gr.Blocks(title="WoW Voiceover WebUI") as app:
                             minimum=1,
                             maximum=100,
                             label="Top k",
-                            value=1,
+                            value=50,
                             step = 1,
                             interactive=True,
                         )
@@ -292,7 +292,7 @@ with gr.Blocks(title="WoW Voiceover WebUI") as app:
                             minimum=0,
                             maximum=1,
                             label="Top p",
-                            value=1.0,
+                            value=0.85,
                             interactive=True,
                         )
                         speed_gossip = gr.Slider(
@@ -463,8 +463,8 @@ with gr.Blocks(title="WoW Voiceover WebUI") as app:
                             minimum=-10,
                             maximum=10,
                             label="Length penalty",
-                            value=1,
-                            interactive=True,
+                            value=1.0,
+                            interactive=False,
                         )
                         repetition_penalty_batch = gr.Slider(
                             minimum=0,
@@ -478,7 +478,7 @@ with gr.Blocks(title="WoW Voiceover WebUI") as app:
                             minimum=1,
                             maximum=100,
                             label="Top k",
-                            value=1,
+                            value=50,
                             step = 1,
                             interactive=True,
                         )
@@ -486,7 +486,7 @@ with gr.Blocks(title="WoW Voiceover WebUI") as app:
                             minimum=0,
                             maximum=1,
                             label="Top p",
-                            value=1.0,
+                            value=0.85,
                             interactive=True,
                         )
                         speed_batch = gr.Slider(
