@@ -81,7 +81,6 @@ def robot_effects(mp3_path):
         if f.startswith(os.path.basename(base_path)) and f.endswith(".wav"):
             os.remove(os.path.join(os.path.dirname(mp3_path), f))
 
-
 def ghost_effects(mp3_path):
     # Load the mp3
     sound = AudioSegment.from_file(mp3_path)
@@ -136,26 +135,73 @@ def undead_effects(mp3_path):
         if f.startswith(os.path.basename(base_path)) and f.endswith(".wav"):
             os.remove(os.path.join(os.path.dirname(mp3_path), f))
 
-def demon_effects(mp3_path):
+def demon_effects(mp3_path, voice_key):
 
     # Load the mp3
     sound = AudioSegment.from_file(mp3_path)
 
     # Work in-place using temporary intermediate files with .wav extension
-
     base_path = os.path.join(mp3_path[:-4])  # strip .mp3
     working_path = base_path + "_proc.wav"
     sound.export(working_path, format="wav")
-
     changed = base_path + "_changed.wav"
-    subprocess.run([
-        'sox', working_path, changed,
-        'pitch', '-100',
-        'reverb', '32', '40', '40', '50', '25', '-5',
-        'gain','-n',
-    ], check=True)
-    working_path = changed
 
+    if voice_key in ('dragon_male','dragon_female'):
+        #growl
+        dragon = 'voices/_effects/dragon.wav'
+        duration = subprocess.check_output(['soxi', '-D', mp3_path]).decode().strip()
+        temp_dragon = dragon + "_temp_loop.wav"
+        subprocess.run([
+            'sox', dragon, temp_dragon,
+            'repeat', '100', 'trim', '0', duration
+        ], check=True)
+
+        subprocess.run([
+            'sox', '-m',
+            '-v', '1.0', working_path,
+            '-v', '0.20', temp_dragon, # Adjust volume here
+            changed,
+            'pitch', '-100',
+            'reverb', '32', '40', '40', '50', '25', '-5',
+            'gain','-n',
+        ], check=True)
+        os.remove(temp_dragon)
+    if voice_key in ('fire_elemental','water_elemental',"earth_elemental","wind_elemental"):
+        if voice_key == 'fire_elemental':
+            effect = 'voices/_effects/fire.wav'
+        elif voice_key == 'earth_elemental':
+            effect = 'voices/_effects/earth.wav'
+        elif voice_key == 'wind_elemental':
+            effect = 'voices/_effects/wind.wav'
+        elif voice_key == 'water_elemental':
+            effect = 'voices/_effects/water.wav'
+        duration = subprocess.check_output(['soxi', '-D', mp3_path]).decode().strip()
+        temp_effect = effect + "_temp_loop.wav"
+
+        subprocess.run([
+            'sox', effect, temp_effect,
+            'repeat', '100', 'trim', '0', duration
+        ], check=True)
+
+        subprocess.run([
+            'sox', '-m',
+            '-v', '1.0', working_path,
+            '-v', '0.40', temp_effect, # Adjust volume here
+            changed,
+            'pitch', '-100',
+            'reverb', '32', '40', '40', '50', '25', '-5',
+            'gain','-n',
+        ], check=True)
+        os.remove(temp_effect)
+    else:
+
+        subprocess.run([
+            'sox', working_path, changed,
+            'pitch', '-100',
+            'reverb', '32', '40', '40', '50', '25', '-5',
+            'gain','-n',
+        ], check=True)
+    working_path = changed
     # Final: overwrite original .mp3 with processed audio
     final = AudioSegment.from_file(working_path)
     final.export(mp3_path, format="mp3", bitrate="64k")
@@ -361,6 +407,49 @@ def comms_effects(mp3_path):
     final.export(mp3_path, format="mp3", bitrate = "64k")
 
     # Clean up temp wavs
+    for f in os.listdir(os.path.dirname(mp3_path)):
+        if f.startswith(os.path.basename(base_path)) and f.endswith(".wav"):
+            os.remove(os.path.join(os.path.dirname(mp3_path), f))
+
+def bubble_effects(mp3_path):
+    # Load the mp3
+    sound = AudioSegment.from_file(mp3_path)
+
+    #bubbles
+    bubbles = 'voices/_effects/bubbles.wav'
+    duration = subprocess.check_output(['soxi', '-D', mp3_path]).decode().strip()
+
+    # Work in-place using temporary intermediate files with .wav extension
+    base_path = os.path.join(mp3_path[:-4])  # strip .mp3
+    print(base_path)
+
+    temp_bubbles = bubbles + "_temp_loop.wav"
+    working_path = base_path + "_proc.wav"
+    sound.export(working_path, format="wav")
+
+    changed = base_path + "_changed.wav"
+
+    #loop effect x100 to make sure it's as long as mp3_path
+    subprocess.run([
+        'sox', bubbles, temp_bubbles,
+        'repeat', '100', 'trim', '0', duration
+    ], check=True)
+
+    #Mix the voice with that temporary loop
+    subprocess.run([
+        'sox', '-m',
+        '-v', '1.0', working_path,
+        '-v', '0.5', temp_bubbles, # Adjust volume here
+        changed
+    ], check=True)
+    working_path = changed
+
+    # Final: overwrite original .mp3 with processed audio
+    final = AudioSegment.from_file(working_path)
+    final.export(mp3_path, format="mp3", bitrate = "64k")
+
+    # Clean up temp wavs
+    os.remove(temp_bubbles)
     for f in os.listdir(os.path.dirname(mp3_path)):
         if f.startswith(os.path.basename(base_path)) and f.endswith(".wav"):
             os.remove(os.path.join(os.path.dirname(mp3_path), f))
