@@ -27,18 +27,20 @@ REPLACE_DICT = {'$b': '\n', '$B': '\n', '$n': 'adventurer', '$N': 'Adventurer',
                  "Draenei": "Dray-nai",
                 "Lordaeron": "Lor-deron",
                 "Quel'Thalas": "Kwel-tha-las",
-                "Dalaran": "Dal-ah-ran",
+                "Dalaran": "Dalah-ran",
                 "Naxxramas": "Nax-ramas",
                 "Scholomance": "Skolo-mance",
                 "Stratholme": "Strath-holm",
                 "Atal'ai":"Ata-lai",
                 "Naaru":"Naroo",
                 "Dragonflight": "Dragon-flight",
-
+                "Necrolord":"necro-lord",
+                "bloodmage":"blood-mage",
+                "taunka'le":"taunka-lay",
 
 
                 # Bosses / NPCs
-                "Malygos": "Mal-ee-goss",
+                "Malygos": "Maali-goss",
                 "Kel'Thuzad": "Kel-thu-zahd",
                 "Anub'arak": "Anub-araak",
                 "Kael'thas": "Kale-thoss",
@@ -56,7 +58,7 @@ REPLACE_DICT = {'$b': '\n', '$B': '\n', '$n': 'adventurer', '$N': 'Adventurer',
                 "Pathaleon":"Pathalion",
                 "Demetrian":"Deh-mee-tree-ahn",
                 "Zul'Marosh": "Zool-marosh",
-                "Medivh":"Meh-deev",
+                "Medivh":"Medaeve",
                 "Dar'Khan":"DarKahn",
                 "Stormrage": "Storm-rayge",
                 "Gul'dan":"Gool dan",
@@ -247,6 +249,8 @@ class TTSProcessor(TTSEngine):
         #race-gender model on file
         if voice_name.endswith("_dk"):
             voice_name = voice_name[:-3]
+        elif voice_name in ('fire_elemental','water_elemental',"earth_elemental","wind_elemental"):
+            voice_name = "demon_male"
 
         mapped_voice = VOICE_MODEL_MAP.get(voice_name, voice_name)
 
@@ -257,10 +261,10 @@ class TTSProcessor(TTSEngine):
         if emotion == "default":
             emotion = None
 
-        voice_path = self.make_audio_path(mapped_voice, emotion)
+        voice_path = self.make_audio_path(voice_name, emotion)
 
         if not len(voice_path)>=1:
-            print(f"Voice sample not found: {mapped_voice}")
+            print(f"Voice sample not found: {voice_name}")
             return
         # Set model_dir based on mapped voice, or voice_name
         model_dir = f"fine_tuned/{mapped_voice}"
@@ -321,10 +325,11 @@ class TTSProcessor(TTSEngine):
         elif voice_key in ("mechanical", "titan_male"):
             print(f"Robot post-processing for {outpath}")
             robot_effects(outpath)
-        elif voice_key in ("demon_male", "keeper", "dragon_male", "dragon_female"):
+        elif voice_key in ("demon_male", "keeper", "dragon_male", "dragon_female",
+            'fire_elemental','water_elemental',"earth_elemental","wind_elemental"):
             print(f"Demon post-processing for {outpath}")
-            demon_effects(outpath)
-        elif voice_key in ("giant_male", "ogre_male", "ogrila_ogre","ancient"):
+            demon_effects(outpath, voice_key)
+        elif voice_key in ("giant_male", "ogre_male", "ogrila_ogre","ancient", "murloc"):
             print(f"Giant post-processing for {outpath}")
             giant_effects(outpath, voice_key)
         elif voice_key in ("wolvar_male", "gorloc_male"):
@@ -347,7 +352,7 @@ class TTSProcessor(TTSEngine):
                 ghost_effects(outpath)
             elif effect_type == "demon":
                 print("Doing demon effects", flush = True)
-                demon_effects(outpath)
+                demon_effects(outpath, voice_key)
             elif effect_type == "giant":
                 print("Doing giant effects", flush = True)
                 giant_effects(outpath, voice_key)
@@ -363,6 +368,9 @@ class TTSProcessor(TTSEngine):
             elif effect_type == "comms":
                 print(f"Telephone effects ...", flush = True)
                 comms_effects(outpath)
+            elif effect_type == "bubbles":
+                print(f"Bubble effects ...", flush = True)
+                bubble_effects(outpath)
         print(f"Audio saved and processed: {outpath}")
 
 
@@ -600,9 +608,6 @@ class TTSProcessor(TTSEngine):
 
         for i, row in tqdm(quest_df.iterrows()):
             quest_source = row['source']
-            if quest_source == 'progress': # skipping progress text for now
-                continue
-
             quest_id = int(row['quest'])
             quest_title = row['quest_title']
             quest_text = get_first_n_words(row['text'], 25) + ' ' +  get_last_n_words(row['text'], 25)
@@ -784,6 +789,7 @@ class TTSProcessor(TTSEngine):
                      repetition_penalty = repetition_penalty, top_k = top_k, top_p = top_p, speed = speed,
                      f0_up_key = f0_up_key, f0_method = f0_method, index_rate = index_rate, filter_radius = filter_radius,
                      resample_sr = resample_sr, rms_mix_rate = rms_mix_rate, protect = protect, emotion = emotion)
+
         audio = self.output_path
         return "Generation complete.", expansions, audio  # Return both info message and expansions
 
