@@ -5,7 +5,7 @@ from tqdm import tqdm
 import hashlib
 from concurrent.futures import ThreadPoolExecutor
 import re
-from wowvo_client.consts import RACE_DICT, GENDER_DICT, VOICE_MODEL_MAP, NPC_EFFECTS
+from wowvo_client.consts import RACE_DICT, GENDER_DICT, VOICE_MODEL_MAP, NPC_EFFECTS, REUSE_AUDIO_MAP, REPLACE_DICT
 from wowvo_client.length_table import write_sound_length_table_lua
 from wowvo_client.utils import get_first_n_words, get_last_n_words, replace_dollar_bs_with_space
 from slpp import slpp as lua
@@ -16,95 +16,7 @@ from wowvo_client.tts_engine import TTSEngine
 import subprocess
 
 DATAMODULE_TABLE_GUARD_CLAUSE = 'if not VoiceOver or not VoiceOver.DataModules then return end'
-REPLACE_DICT = {'$b': '\n', '$B': '\n', '$n': 'adventurer', '$N': 'Adventurer',
-                '$C': 'Adventurer', '$c': 'adventurer', '$R': 'Traveler', '$r': 'traveler', '$t citizen : citizen': 'citizen',
-                '$T Civvy : Civvy;': '',
-                '<name>': 'adventurer', '<Name>': 'Adventurer',
-                '<race>': 'traveler', '<Race>': 'Traveler',
-                '<class>': 'adventurer', '<Class>': 'Adventurer',
-                 '—':',', '--':',', " - ":", ",
-                 # Factions / Regions
-                 "Draenei": "Dray-nai",
-                "Lordaeron": "Lor-deron",
-                "Quel'Thalas": "Kwel-tha-las",
-                "Dalaran": "Dalah-ran",
-                "Naxxramas": "Nax-ramas",
-                "Scholomance": "Skolo-mance",
-                "Stratholme": "Strath-holm",
-                "Atal'ai":"Ata-lai",
-                "Naaru":"Naroo",
-                "Dragonflight": "Dragon-flight",
-                "Necrolord":"necro-lord",
-                "bloodmage":"blood-mage",
-                "taunka'le":"taunka-lay",
 
-
-                # Bosses / NPCs
-                "Malygos": "Maali-goss",
-                "Kel'Thuzad": "Kel-thu-zahd",
-                "Anub'arak": "Anub-araak",
-                "Kael'thas": "Kale-thoss",
-                "Mok'Nathal":"Mockna-tholl",
-                "orcish":"orkish",
-                "Kil'jaeden": "Kil-jayden",
-                "Archimonde": "Arki-mond",
-                "C'Thun": "Kuh-thoon",
-                "Yogg-Saron": "Yog-suh-ron",
-                "Gjalerbron": "Yal-er-bron",
-                "Heb'Drakkar": "Heb-drah-kar",
-                "Rageclaw": "Rage-claw",
-                "Ragemane": "Rage-mane",
-                "Verna":"Vur-nah",
-                "Pathaleon":"Pathalion",
-                "Demetrian":"Deh-mee-tree-ahn",
-                "Zul'Marosh": "Zool-marosh",
-                "Medivh":"Medaeve",
-                "Dar'Khan":"DarKahn",
-                "Stormrage": "Storm-rayge",
-                "Gul'dan":"Gool dan",
-                "undead":"on-ded",
-                "undeath":"on-deth",
-                "Lok'tar ogar":"Loktaro garr",
-
-                # Places
-                #"Azeroth":"Ah-ze-roth",
-                "Icecrown": "Ice crown",
-                "Dragonshrine": "Dragon-shrine",
-                "Auchindoun": "Aw-kin-doon",
-                "Hyjal": "High-jahl",
-                "Mathystra": "Math-is-trah",
-                "Ulduar": "Ool-dwar",
-                "Utgarde": "Oot-guard",
-                "Zul'Aman": "Zool-ahmaan",
-                "Zul'Drak": "Zool-drak",
-                "Ahn'kahet": "On-ka-het",
-                "Gundrak": "Gun-drak",
-                "Modan":"Moe-dahn",
-                "Ahn'Qiraj":"On-kee-rahj",
-                "Elwynn":"Elwin",
-                "Arcatraz":"Arc-a-traz",
-                "Stonetalon":"stone-talon",
-                "Kalimdor":"Kalim-dor",
-
-                # Titans / Lore
-                "Tyr": "Teer",
-                "Freya": "Fray-ah",
-                "Thorim": "Thor-rim",
-                "Hodir": "Ho-deer",
-                "Loken": "Low-ken",
-                "Ymiron": "Yee-miron",
-                "Elune":"Ehloon",
-
-                # Misc
-                "Felwood": "Fell-wood",
-                "Ashenvale": "Ashen-veil",
-                #"Grizzly Hills": "Grizz-lee Hills",
-                "Sha'naar":"Shanar",
-                "Sin'dorei":"Sindoh-rye",
-                "Gorefiend":"Gorfeend",
-
-
-}
 VOICE_SAMPLE_FOLDER = "voices"
 
 
@@ -231,7 +143,7 @@ class TTSProcessor(TTSEngine):
 
         return voice_path
 
-    def tts(self, text, voice_name, output_name, output_subfolder, forceGen=False, questgiver_id=None,
+    def tts(self, text, voice_name, output_name, output_subfolder, forceGen=True, questgiver_id=None,
                           temperature = 0.75, length_penalty = 1.0, repetition_penalty = 10.0,
                           top_k = 1, top_p = 1.0, speed = 1.05, f0_up_key = 0, f0_method = "rmvpe",
                           index_rate = 0.70, filter_radius = 3, resample_sr = 0, rms_mix_rate = 1,
@@ -246,13 +158,17 @@ class TTSProcessor(TTSEngine):
         voice_key = voice_name
 
         #remode dk suffix from dk so model search matches with the corresponding
-        #race-gender model on file
         if voice_name.endswith("_dk"):
             voice_name = voice_name[:-3]
-        elif voice_name in ('fire_elemental','water_elemental',"earth_elemental","wind_elemental"):
-            voice_name = "demon_male"
 
-        mapped_voice = VOICE_MODEL_MAP.get(voice_name, voice_name)
+        #using voice_key to map voice models allows to mix audio folders with voice models
+        mapped_voice = VOICE_MODEL_MAP.get(voice_key, voice_name)
+
+        #race-gender model on file
+        #for creatures that reuse audios, map their voice_name to the audios that will be used
+
+        voice_name = REUSE_AUDIO_MAP.get(voice_name, mapped_voice)
+
 
         if os.path.isfile(outpath) and not forceGen:
             print("duplicate generation, skipping")
@@ -318,7 +234,7 @@ class TTSProcessor(TTSEngine):
         #after voice generation, apply sfx based on certain race-gender combos
         if voice_key.endswith("_dk"):
             print(f"DK post-processing for {outpath}")
-            dk_effects(outpath)
+            dk_effects(outpath, voice_key)
         elif voice_key in ("sylvanas", "forsaken_male", "forsaken_female"):
             print(f"Undead post-processing for {outpath}")
             undead_effects(outpath)
@@ -329,12 +245,12 @@ class TTSProcessor(TTSEngine):
             'fire_elemental','water_elemental',"earth_elemental","wind_elemental"):
             print(f"Demon post-processing for {outpath}")
             demon_effects(outpath, voice_key)
-        elif voice_key in ("giant_male", "ogre_male", "ogrila_ogre","ancient", "murloc"):
+        elif voice_key in ("giant_male", "ogre_male", "ogrila_ogre","ancient", "murloc", "mountain_giant"):
             print(f"Giant post-processing for {outpath}")
             giant_effects(outpath, voice_key)
         elif voice_key in ("wolvar_male", "gorloc_male"):
             print(f"Small creature post-processing for {outpath}")
-            small_effects(outpath)
+            small_effects(outpath, voice_key)
         elif voice_key in ("earthen"):
             print(f"Earthen creature post-processing for {outpath}")
             earthen_effects(outpath)
@@ -349,7 +265,7 @@ class TTSProcessor(TTSEngine):
             effect_type = NPC_EFFECTS[questgiver_id]
             if effect_type == "ghost":
                 print("Doing ghost effects", flush = True)
-                ghost_effects(outpath)
+                ghost_effects(outpath, voice_key)
             elif effect_type == "demon":
                 print("Doing demon effects", flush = True)
                 demon_effects(outpath, voice_key)
@@ -371,6 +287,9 @@ class TTSProcessor(TTSEngine):
             elif effect_type == "bubbles":
                 print(f"Bubble effects ...", flush = True)
                 bubble_effects(outpath)
+            elif effect_type in ('wolf','bear'):
+                print(f"Beast effects ...", flush = True)
+                beast_effects(outpath,voice_key)
         print(f"Audio saved and processed: {outpath}")
 
 
