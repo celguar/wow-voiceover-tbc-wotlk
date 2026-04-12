@@ -70,9 +70,10 @@ def split_into_sentences(text: str, lang: str = "en") -> List[str]:
     return sentences
 
 
-def get_or_create_latents(model, speaker_key, speaker_wav):
+def get_or_create_latents(model, speaker_key, speaker_wav, voice_name):
     if speaker_key not in latents_cache:
-        gpt_cond_latent, speaker_embedding = model.get_conditioning_latents(speaker_wav)
+        gpt_cond_latent, speaker_embedding = model.get_conditioning_latents(speaker_wav,
+                                                sound_norm_refs = True if voice_name in('gnome_female') else False)
         latents_cache[speaker_key] = (gpt_cond_latent, speaker_embedding)
     return latents_cache[speaker_key]
 
@@ -86,6 +87,7 @@ def load_default():
     speakers_path = os.path.join(base_dir, "speakers_xtts.pth")
 
     config = XttsConfig()
+    config.model_args.gpt_use_perceiver_resampler = True  
     config.load_json(config_path)
 
     model = Xtts.init_from_config(config)
@@ -217,7 +219,7 @@ class TTSEngine:
                 gpt_cond_latent, speaker_embedding = tts.speaker_manager.speakers[speaker_id].values()
             else:
                 # On-the-fly from reference wav, cached
-                gpt_cond_latent, speaker_embedding = get_or_create_latents(tts, ref_path, speaker_wav)
+                gpt_cond_latent, speaker_embedding = get_or_create_latents(tts, ref_path, speaker_wav,voice_name)
 
             chunks = split_into_sentences(text)
             chunks = merge_short_fragments(chunks)
