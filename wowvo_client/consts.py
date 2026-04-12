@@ -51,9 +51,6 @@ RACE_DICT = {
     -77:'custom'
 }
 
-
-
-
 GENDER_DICT = {0: 'male',
                1: 'female',
                -77: 'custom'}
@@ -71,9 +68,117 @@ def race_gender_tuple_to_strings(race_gender_tuple):
 
     return race_gender_strings
 
+REPLACE_DICT = {
+                '$b': '\n', '$B': '\n', '$n': 'adventurer', '$N': 'Adventurer',
+                '$C': 'Adventurer', '$c': 'adventurer', '$R': 'Traveler', '$r': 'traveler', '$t citizen : citizen': 'citizen',
+                '$T Civvy : Civvy;': '',
+                '<name>': 'adventurer', '<Name>': 'Adventurer',
+                '<race>': 'traveler', '<Race>': 'Traveler',
+                '<class>': 'adventurer', '<Class>': 'Adventurer',
+                 '—':',', '--':',', " - ":", ",
+                 # Factions / Regions
+                 "Draenei": "Dray-nai",
+                "Lordaeron": "Lor-deron",
+                "Quel'Thalas": "Kwel-tha-las",
+                "Dalaran": "Dalah-ran",
+                "Naxxramas": "Nax-ramas",
+                "Scholomance": "Skolo-mance",
+                "Stratholme": "Strath-holm",
+                "Atal'ai":"Ata-lai",
+                "Naaru":"Naroo",
+                "Dragonflight": "Dragon-flight",
+                "Necrolord":"necro-lord",
+                "bloodmage":"blood-mage",
+                "taunka'le":"taunka-lay",
+                "wyrm":"werm",
+                "Oneqwah":"Ohnay-kwah",
+                "vrykul":"vrye-kool",
+                "thor modan":"thormoe-dhaan",
+                "ursoc":"ursok",
+                "dun argol":"duunar-goll",
+                "earthen":"ehrrthin",
+
+                # Bosses / NPCs
+                "Malygos": "Maali-goss",
+                "Kel'Thuzad": "Kel-thu-zahd",
+                "Anub'arak": "Anoobah-raak",
+                "Kael'thas": "Kale-thoss",
+                "Mok'Nathal":"Mockna-tholl",
+                "orcish":"orkish",
+                "Kil'jaeden": "Kil-jayden",
+                "Archimonde": "Arki-mond",
+                "C'Thun": "Kuh-thoon",
+                "Yogg-Saron": "Yog-suh-ron",
+                "Gjalerbron": "Yal-er-bron",
+                "Heb'Drakkar": "Heb-drah-kar",
+                "Rageclaw": "Rage-claw",
+                "Ragemane": "Rage-mane",
+                "Verna":"Vur-nah",
+                "Pathaleon":"Pathalion",
+                "Demetrian":"Deh-mee-tree-ahn",
+                "Zul'Marosh": "Zool-marosh",
+                "Medivh":"Medaeve",
+                "Dar'Khan":"DarKahn",
+                "Stormrage": "Storm-rayge",
+                "Gul'dan":"Gool dan",
+                "undead":"on-ded",
+                "undeath":"on-deth",
+                "Lok'tar ogar":"Loktaro garr",
+                'mrgl-mrgl':"mergle-mergle",
+
+                # Places
+                #"Azeroth":"Ah-ze-roth",
+                "Icecrown": "Ice crown",
+                "Dragonshrine": "Dragon-shrine",
+                "Auchindoun": "Aw-kin-doon",
+                "Hyjal": "High-jahl",
+                "Mathystra": "Math-is-trah",
+                "Ulduar": "Ool-dwar",
+                "Utgarde": "Oot-guard",
+                "Zul'Aman": "Zool-ahmaan",
+                "Zul'Drak": "Zool-drak",
+                "Ahn'kahet": "On-ka-het",
+                "Gundrak": "Gun-drak",
+                "Modan":"Moe-dahn",
+                "Ahn'Qiraj":"On-kee-rahj",
+                "Elwynn":"Elwin",
+                "Arcatraz":"Arc-a-traz",
+                "Stonetalon":"stone-talon",
+                "Kalimdor":"Kalim-dor",
+
+                # Titans / Lore
+                "Tyr": "Teer",
+                "Freya": "Fray-ah",
+                "Thorim": "Thor-rim",
+                "Hodir": "Ho-deer",
+                #"Loken": "Low-ken",
+                "Ymiron": "Yee-miron",
+                "Elune":"Ehloon",
+
+                # Misc
+                "Felwood": "Fell-wood",
+                "Ashenvale": "Ashen-veil",
+                "Sha'naar":"Shanar",
+                "Sin'dorei":"Sindoh-rye",
+                "Gorefiend":"Gorfeend",
+                "Indu'le": "Indu-lay",
+
+
+}
+
+REUSE_AUDIO_MAP = {
+    "fire_elemental": "demon_male",
+    "water_elemental": "demon_male",
+    "earth_elemental": "demon_male",
+    "wind_elemental": "demon_male",
+    "wolf": "rexxar",
+    "banshee": "forsaken_female",
+    "mountain_giant": "ancient",
+    "orc_hero": "felorc_male",
+}
 VOICE_MODEL_MAP = {
     # sholazar
-    "wolvar_male": "orc_male",
+    "wolvar_male": "rexxar",
     "gorloc_male": "furbolg_male",
 
     #dragon
@@ -82,16 +187,19 @@ VOICE_MODEL_MAP = {
 
 
     # big creature shared model
+    "tooga":"big_creature",
+
     "giant_male": "big_creature",
     "vrykul_male": "orc_male",
     "ogre_male": "felorc_male",
-
+    "abomination":"felorc_male",
+    "mountain_giant": "felorc_male",
+    "mountain_giant_dk": "felorc_male", #for rune giants, e.g., Gavrock
     #other
     "giant_female":"forsaken_female",
     "titan_male":"varian",
     "medivh":"khadgar",
     "ogrila_ogre":'khadgar',
-
     "earthen":"dwarf_male",
     "naaru":"tauren_female",
     "murloc":"demon_female",
@@ -99,7 +207,12 @@ VOICE_MODEL_MAP = {
     "water_elemental":"demon_male",
     "earth_elemental":"demon_male",
     "wind_elemental":"demon_male",
-    # defaults map to themselves (if not overridden)
+    "wolf":"rexxar",
+    "bear":"rexxar",
+    "cat":"tauren_female",
+    "rhino":"tauren_male",
+    "serpent":"naga_female",
+    "banshee":"forsaken_female",
 }
 
 
@@ -143,10 +256,14 @@ NPC_EFFECTS = {
     21318:"ghost",
     21330:"demon",
     22103:"demon",
+    23778:"undead",
+    24137:"undead",
+    25425:"ghost",
     26117:"demon",
     26206:"demon",
     24910:"ghost",
     26501:"ghost",
+    26471:"ghost",
     27337:"ghost",
     29047:"ghost",
     31135:"ghost",
@@ -165,6 +282,35 @@ NPC_EFFECTS = {
     28911:"undead",
     19937:"ghost",
     29259:"ghost",
-    28760:"undead",
+    24027:"undead",
+    24956:"ghost",
+    24261:"wolf", #ulfang
+    27275:"bear", #kodian
+    27274:"bear", #orsonn
+    27350:"demon",
+    26443:"demon",
+    27950:"demon",
+    26917:"demon",
+    27575:"demon",
+    27990:"demon",
+    27785:"demon",
+    28666:"undead", #gorebag
+    28589:"demon", #gristlegut
+    26527:"demon", #chromie (purging of stratholme)
+    27856:"demon", #chromie (wyrmrest)
+    27765:"demon", #nalice
+    26593:"demon", #serinar
+    26983:"demon", #aurastrasza
+    27763:"demon", #vargastrasz
+    28760:"undead", #hargus the gimp
+    26653:"undead", #kilix the unraveler
+    188419:"ghost", #elder mana'loa
+    26500:"ghost", #image of drakuru
+    26543:"ghost", #image of drakuru
+    26701:"ghost", #image of drakuru
+    26787:"ghost", #image of drakuru
+    26924:"ghost", #gan'jo
+    37779:"undead", #dark ranger loralen
+    37780:"undead", #dark ranger vorel
 
 }
