@@ -86,7 +86,7 @@ with gr.Blocks(title="WoW Voiceover WebUI") as app:
                             minimum=0,
                             maximum=15,
                             label="Repetition penalty",
-                            value=10,
+                            value=4,
                             step = 0.5,
                             interactive=True,
                         )
@@ -276,7 +276,7 @@ with gr.Blocks(title="WoW Voiceover WebUI") as app:
                             minimum=0,
                             maximum=15,
                             label="Repetition penalty",
-                            value=10,
+                            value=4,
                             step = 0.5,
                             interactive=True,
                         )
@@ -470,7 +470,7 @@ with gr.Blocks(title="WoW Voiceover WebUI") as app:
                             minimum=0,
                             maximum=15,
                             label="Repetition penalty",
-                            value=10,
+                            value=4,
                             step =0.5,
                             interactive=True,
                         )
