@@ -21,6 +21,7 @@ local defaults = {
             SoundChannel = Enums.SoundChannel.Master,
             AutoToggleDialog = Version.IsLegacyVanilla or Version:IsRetailOrAboveLegacyVersion(60100),
             StopAudioOnDisengage = false,
+            PlayProgressAudio = true,
         },
         MinimapButton = {
             LibDBIcon = {}, -- Table used by LibDBIcon to store position (minimapPos), dragging lock (lock) and hidden state (hide)
@@ -72,7 +73,7 @@ function Addon:OnInitialize()
 
     self:RegisterEvent("ADDON_LOADED")
     self:RegisterEvent("QUEST_DETAIL")
-    -- self:RegisterEvent("QUEST_PROGRESS")
+    self:RegisterEvent("QUEST_PROGRESS")
     self:RegisterEvent("QUEST_COMPLETE")
     self:RegisterEvent("QUEST_GREETING")
     self:RegisterEvent("QUEST_FINISHED")
@@ -284,6 +285,53 @@ function Addon:QUEST_COMPLETE()
     SoundQueue:AddSoundToQueue(soundData)
 end
 
+function Addon:QUEST_PROGRESS()
+    if not self.db.profile.Audio.PlayProgressAudio then
+        return
+    end
+
+    local questID = GetQuestID()
+    local questTitle = GetTitleText()
+    local questText = GetRewardText()
+    local guid = Utils:GetNPCGUID()
+    local targetName = Utils:GetNPCName()
+
+    if not questID or questID == 0 then
+        return
+    end
+
+    -- Can happen if the player interacted with an NPC while having main menu or options opened
+    if not guid and not targetName then
+        return
+    end
+
+    if not questID or questID == 0 then
+    -- Try fallback: look up by quest title
+    	if DataModules and DataModules.GetQuestIDByTitle then
+    		questID = DataModules:GetQuestIDByTitle(questTitle)
+    	else
+    		return
+    	end
+    end
+
+    if Addon.db.char.RecentQuestTitleToID and questID ~= 0 then
+        Addon.db.char.RecentQuestTitleToID[questTitle] = questID
+    end
+
+    ---@type SoundData
+    local soundData = {
+        event = Enums.SoundEvent.QuestProgress,
+        questID = questID,
+        name = targetName,
+        title = questTitle,
+        text = questText,
+        unitGUID = guid,
+        unitIsObjectOrItem = Utils:IsNPCObjectOrItem(),
+        addedCallback = QuestSoundDataAdded,
+    }
+    SoundQueue:AddSoundToQueue(soundData)
+end
+
 function Addon:ShouldPlayGossip(guid, text)
     local npcKey = guid or "unknown"
 
@@ -343,7 +391,6 @@ function Addon:GOSSIP_SHOW()
     local targetName = Utils:GetNPCName()
     local gossipText = GetGossipText()
 
-
     -- Can happen if the player interacted with an NPC while having main menu or options opened
     if not guid and not targetName then
         return
@@ -351,32 +398,48 @@ function Addon:GOSSIP_SHOW()
 
     local play, npcKey = self:ShouldPlayGossip(guid, gossipText)
 
-    if not play then
-        return
+    if play then
+        -- Play the gossip sound
+        ---@type SoundData
+        local soundData = {
+            event = Enums.SoundEvent.Gossip,
+            name = targetName,
+            title = selectedGossipOption and format([["%s"]], selectedGossipOption),
+            text = gossipText,
+            unitGUID = guid,
+            unitIsObjectOrItem = Utils:IsNPCObjectOrItem(),
+            addedCallback = GossipSoundDataAdded,
+            startCallback = function()
+                self.db.char.hasSeenGossipForNPC[npcKey] = true
+            end
+        }
+        SoundQueue:AddSoundToQueue(soundData)
+
+        selectedGossipOption = nil
+        lastGossipOptions = nil
+        if C_GossipInfo and C_GossipInfo.GetOptions then
+            lastGossipOptions = C_GossipInfo.GetOptions()
+        elseif GetGossipOptions then
+            lastGossipOptions = { GetGossipOptions() }
+        end
     end
 
-    -- Play the gossip sound
-    ---@type SoundData
-    local soundData = {
-        event = Enums.SoundEvent.Gossip,
-        name = targetName,
-        title = selectedGossipOption and format([["%s"]], selectedGossipOption),
-        text = gossipText,
-        unitGUID = guid,
-        unitIsObjectOrItem = Utils:IsNPCObjectOrItem(),
-        addedCallback = GossipSoundDataAdded,
-        startCallback = function()
-            self.db.char.hasSeenGossipForNPC[npcKey] = true
+    if self.db.profile.Audio.PlayProgressAudio then
+        local title, questID = DataModules:GetRandomProgressQuestForCurrentGossip(targetName)
+        if title then
+            ---@type SoundData
+            local progressSoundData = {
+                event = Enums.SoundEvent.QuestProgress,
+                name = targetName,
+                title = title,
+                questID = questID,
+                text = "",
+                unitGUID = guid,
+                unitIsObjectOrItem = Utils:IsNPCObjectOrItem(),
+                addedCallback = QuestSoundDataAdded
+            }
+            SoundQueue:AddSoundToQueue(progressSoundData)
         end
-    }
-    SoundQueue:AddSoundToQueue(soundData)
-
-    selectedGossipOption = nil
-    lastGossipOptions = nil
-    if C_GossipInfo and C_GossipInfo.GetOptions then
-        lastGossipOptions = C_GossipInfo.GetOptions()
-    elseif GetGossipOptions then
-        lastGossipOptions = { GetGossipOptions() }
     end
 end
 

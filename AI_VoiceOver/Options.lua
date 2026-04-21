@@ -285,6 +285,18 @@ local GeneralTab =
                         Addon.db.profile.Audio.StopAudioOnDisengage = value
                     end,
                 },
+                LineBreak3 = { type = "description", name = "", order = 7 },
+                ToggleProgressAudio = {
+                    type = "toggle",
+                    order = 8,
+                    width = 2,
+                    name = "Play Progress Audio",
+                    desc = "Play Progress Audio when speaking to NPC with that quest. If multiple quests, play randomly selected.",
+                    get = function(info) return Addon.db.profile.Audio.PlayProgressAudio end,
+                    set = function(info, value)
+                        Addon.db.profile.Audio.PlayProgressAudio = value
+                    end,
+                },
             }
         },
         Debug = {

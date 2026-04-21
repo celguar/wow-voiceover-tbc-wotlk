@@ -549,3 +549,139 @@ function DataModules:GetQuestIDByTitle(title)
 
     return nil
 end
+
+---@param npcName string
+---@return number[] questIDs Array of quest IDs linked to the given NPC name
+---@return number npcID ID of the NPC
+function DataModules:GetQuestIDsByNPCName(npcName)
+    local normNPCName = normalizeTitle(npcName)
+    local questIDs = {}
+    local npcID = 0
+
+    for _, module in self:GetModules() do
+        local data = module.NPCNameLookupByNPCID
+        if data then
+            for key, val in pairs(data) do
+                if titlesMatch(val, normNPCName) then
+                    npcID = key
+                    Debug:Print("npcID: " .. npcID)
+                end
+            end
+        end
+    end
+
+    if not npcID then
+       return nil, nil
+    end
+
+    for _, module in self:GetModules() do
+        local data = module.NPCIDLookupByQuestID
+        if data then
+            for key, val in pairs(data) do
+                local found = false
+                for _, v in ipairs(questIDs) do
+                    if v == key then
+                        found = true
+                        break
+                    end
+                end
+                if not found then
+                    if titlesMatch(val, npcID) then
+                        table.insert(questIDs, key)
+                        Debug:Print("questID: " .. key)
+                    end
+                end
+            end
+        end
+    end
+
+    return questIDs, npcID
+end
+
+--- Get a random progress quest for the current gossip based on NPC name.
+---@param npcName string - The name of the NPC to search for quests.
+---@return string|nil title - The title of the randomly selected quest or nil if no quests are found.
+---@return number|nil questID - The ID of the randomly selected quest or nil if no quests are found.
+function DataModules:GetRandomProgressQuestForCurrentGossip(npcName)
+    local numActiveQuests = GetNumGossipActiveQuests()
+    if numActiveQuests == 0 then
+        return nil
+    end
+    local questIDs, npcID = DataModules:GetQuestIDsByNPCName(npcName)
+    
+    if table.getn(questIDs) == 0 then
+        Debug:Print("GetRandomProgressQuestForCurrentGossip: No quests found for NPC: " .. npcName)
+        return nil
+    end
+
+    local _, numQuests = GetNumQuestLogEntries()
+    -- use bigger number because quest log considers quest zone as part of log
+    numQuests = numQuests + numQuests
+
+    local questIDsInLog = {}
+    local questIDsInLogComplete = {}
+    local gossipActive = GetGossipActiveQuests()
+
+    -- iterate over all quests
+    for qlogid=1,numQuests do
+        local title, level, suggestedGroup, isHeader, isCollapsed, isComplete, frequency, questID = GetQuestLogTitle(qlogid)
+        if title then
+            for _, qid in ipairs(questIDs) do
+                if qid == questID then
+                    local found = false
+                    for _, v in ipairs(questIDsInLog) do
+                        if v == qlogid then
+                            found = true
+                            break
+                        end
+                    end
+
+                    -- skip if wrong npc
+                    if numActiveQuests < 3 then
+                        if title ~= gossipActive then
+                            found = true
+                        end
+                    end
+
+                    if numActiveQuests > 2 and not found then
+                        found = true
+                        for _, v in ipairs(gossipActive) do
+                            if title == v then
+                                found = false
+                            end
+                        end
+                    end
+
+                    if not found then
+                        table.insert(questIDsInLog, qlogid)
+                        if isComplete then
+                            table.insert(questIDsInLogComplete, qlogid)
+                        end
+                    end
+                end
+            end
+        end
+    end
+
+    if table.getn(questIDsInLog) == 0 and table.getn(questIDsInLogComplete) == 0 then
+        return nil, nil
+    end
+
+    table.sort(questIDsInLog, function() return math.random() < 0.5 end)
+    table.sort(questIDsInLogComplete, function() return math.random() < 0.5 end)
+
+    -- Pick the first element as a random value from the sorted table
+    local randomQuestLogID = questIDsInLog[1]
+    if table.getn(questIDsInLogComplete) > 0 then
+        randomQuestLogID = questIDsInLogComplete[1]
+    end
+
+    if randomQuestLogID then
+        local title, level, suggestedGroup, isHeader, isCollapsed, isComplete, frequency, questID = GetQuestLogTitle(randomQuestLogID)
+        if title then
+            return title, questID
+        end
+    end
+
+    return nil, nil
+end
