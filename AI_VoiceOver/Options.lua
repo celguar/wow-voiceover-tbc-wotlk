@@ -286,15 +286,33 @@ local GeneralTab =
                     end,
                 },
                 LineBreak3 = { type = "description", name = "", order = 7 },
-                ToggleProgressAudio = {
-                    type = "toggle",
+                ProgressFrequency = {
+                    type = "select",
+                    width = 1.2,
                     order = 8,
-                    width = 2,
-                    name = "Play Progress Audio",
-                    desc = "Play Progress Audio when speaking to NPC with that quest. If multiple quests, play randomly selected.",
-                    get = function(info) return Addon.db.profile.Audio.PlayProgressAudio end,
+                    name = "Quest Progress Playback Frequency",
+                    desc = "Controls how often VoiceOver will play Quest Progress text.",
+                    values = {
+                        [Enums.ProgressFrequency.Always] = "Always",
+                        [Enums.ProgressFrequency.OncePerQuest] = "Play Once for Quest",
+                        [Enums.ProgressFrequency.Never] = "Never",
+                    },
+                    get = function(info) return Addon.db.profile.Audio.ProgressFrequency end,
                     set = function(info, value)
-                        Addon.db.profile.Audio.PlayProgressAudio = value
+                        Addon.db.profile.Audio.ProgressFrequency = value
+                        SoundQueueUI:RefreshConfig()
+                    end,
+                },
+                LineBreak4 = { type = "description", name = "", order = 9 },
+                ToggleInterruptProgress = {
+                    type = "toggle",
+                    order = 10,
+                    width = 2,
+                    name = "Interrupt Progress Playback to play other sounds",
+                    desc = "VoiceOver will interrupt Quest Progress playback when another sound is triggered.",
+                    get = function(info) return Addon.db.profile.Audio.ProgressInterrupt end,
+                    set = function(info, value)
+                        Addon.db.profile.Audio.ProgressInterrupt = value
                     end,
                 },
             }

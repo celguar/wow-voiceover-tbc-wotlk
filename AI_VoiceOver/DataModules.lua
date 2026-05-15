@@ -625,7 +625,7 @@ function DataModules:GetRandomProgressQuestForCurrentGossip(npcName)
     -- iterate over all quests
     for qlogid=1,numQuests do
         local title, level, suggestedGroup, isHeader, isCollapsed, isComplete, frequency, questID = GetQuestLogTitle(qlogid)
-        if title then
+        if title and not isHeader then
             for _, qid in ipairs(questIDs) do
                 if qid == questID then
                     local found = false
@@ -652,7 +652,7 @@ function DataModules:GetRandomProgressQuestForCurrentGossip(npcName)
                         end
                     end
 
-                    if not found then
+                    if not found and Addon:ShouldPlayProgress(qid) then
                         table.insert(questIDsInLog, qlogid)
                         if isComplete then
                             table.insert(questIDsInLogComplete, qlogid)

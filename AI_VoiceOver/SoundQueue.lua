@@ -86,6 +86,11 @@ function SoundQueue:AddSoundToQueue(soundData)
         end
     end
 
+    -- Interrupt Progress to play next sound
+    if self:GetQueueSize() == 1 and self:GetCurrentSound().event == Enums.SoundEvent.QuestProgress and Addon.db.profile.Audio.ProgressInterrupt then
+        self:RemoveSoundFromQueue(self:GetCurrentSound())
+    end
+
     if soundData.questID == nil and questSoundExists then
         return
     end

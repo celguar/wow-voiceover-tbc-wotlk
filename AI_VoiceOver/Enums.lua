@@ -31,6 +31,14 @@ Enums.GossipFrequency =
     Never = 4,
 }
 
+---@enum ProgressFrequency
+Enums.ProgressFrequency =
+{
+    Always = 1,
+    OncePerQuest = 2,
+    Never = 3,
+}
+
 ---@enum SoundChannel
 Enums.SoundChannel =
 {

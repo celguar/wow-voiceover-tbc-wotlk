@@ -248,7 +248,7 @@ if Version:IsBelowLegacyVersion(60000) then
             title, level, questTag, suggestedGroup, isHeader, isCollapsed, isComplete, isDaily, questID, displayQuestID = oldGetQuestLogTitle(questIndex)
         end
         -- Patch 3.3.0 (2009-12-08): Added the 'questID' return.
-        if Version:IsBelowLegacyVersion(30300) then
+        if Version:IsBelowLegacyVersion(30300) and title then
             questID = DataModules:GetQuestID("accept", title, "", "")
             if not questID then
                 -- Try assuming that the last quest with the same title that the player has accepted is the quest that's currently in the quest log

@@ -21,7 +21,8 @@ local defaults = {
             SoundChannel = Enums.SoundChannel.Master,
             AutoToggleDialog = Version.IsLegacyVanilla or Version:IsRetailOrAboveLegacyVersion(60100),
             StopAudioOnDisengage = false,
-            PlayProgressAudio = true,
+            ProgressFrequency = Enums.ProgressFrequency.OncePerQuest,
+            ProgressInterrupt = true,
         },
         MinimapButton = {
             LibDBIcon = {}, -- Table used by LibDBIcon to store position (minimapPos), dragging lock (lock) and hidden state (hide)
@@ -45,6 +46,7 @@ local defaults = {
     char = {
         IsPaused = false,
         hasSeenGossipForNPC = {},
+        hasSeenProgressForQuest = {},
         RecentQuestTitleToID = Version:IsBelowLegacyVersion(30300) and {},
     }
 }
@@ -286,10 +288,6 @@ function Addon:QUEST_COMPLETE()
 end
 
 function Addon:QUEST_PROGRESS()
-    if not self.db.profile.Audio.PlayProgressAudio then
-        return
-    end
-
     local questID = GetQuestID()
     local questTitle = GetTitleText()
     local questText = GetRewardText()
@@ -317,19 +315,26 @@ function Addon:QUEST_PROGRESS()
     if Addon.db.char.RecentQuestTitleToID and questID ~= 0 then
         Addon.db.char.RecentQuestTitleToID[questTitle] = questID
     end
+    
+    local play = self:ShouldPlayProgress(questID)
 
-    ---@type SoundData
-    local soundData = {
-        event = Enums.SoundEvent.QuestProgress,
-        questID = questID,
-        name = targetName,
-        title = questTitle,
-        text = questText,
-        unitGUID = guid,
-        unitIsObjectOrItem = Utils:IsNPCObjectOrItem(),
-        addedCallback = QuestSoundDataAdded,
-    }
-    SoundQueue:AddSoundToQueue(soundData)
+    if play then
+        ---@type SoundData
+        local soundData = {
+            event = Enums.SoundEvent.QuestProgress,
+            questID = questID,
+            name = targetName,
+            title = questTitle,
+            text = questText,
+            unitGUID = guid,
+            unitIsObjectOrItem = Utils:IsNPCObjectOrItem(),
+            addedCallback = QuestSoundDataAdded,
+            startCallback = function()
+                self.db.char.hasSeenProgressForQuest[questID] = true
+            end
+        }
+        SoundQueue:AddSoundToQueue(soundData)
+    end
 end
 
 function Addon:ShouldPlayGossip(guid, text)
@@ -353,6 +358,21 @@ function Addon:ShouldPlayGossip(guid, text)
     end
 
     return true, npcKey
+end
+
+function Addon:ShouldPlayProgress(questID)
+    Debug:Print("questID: " .. questID)
+    local progressSeenForQuest = self.db.char.hasSeenProgressForQuest[questID]
+
+    if self.db.profile.Audio.ProgressFrequency == Enums.ProgressFrequency.OncePerQuest then
+        if progressSeenForQuest then
+            return
+        end
+    elseif self.db.profile.Audio.ProgressFrequency == Enums.ProgressFrequency.Never then
+        return
+    end
+
+    return true
 end
 
 function Addon:QUEST_GREETING()
@@ -424,7 +444,7 @@ function Addon:GOSSIP_SHOW()
         end
     end
 
-    if self.db.profile.Audio.PlayProgressAudio then
+    if self.db.profile.Audio.ProgressFrequency ~= Enums.ProgressFrequency.Never then
         local title, questID = DataModules:GetRandomProgressQuestForCurrentGossip(targetName)
         if title then
             ---@type SoundData
@@ -436,7 +456,10 @@ function Addon:GOSSIP_SHOW()
                 text = "",
                 unitGUID = guid,
                 unitIsObjectOrItem = Utils:IsNPCObjectOrItem(),
-                addedCallback = QuestSoundDataAdded
+                addedCallback = QuestSoundDataAdded,
+                startCallback = function()
+                    self.db.char.hasSeenProgressForQuest[questID] = true
+                end
             }
             SoundQueue:AddSoundToQueue(progressSoundData)
         end
