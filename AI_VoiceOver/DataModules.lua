@@ -554,7 +554,6 @@ end
 ---@return number[] questIDs Array of quest IDs linked to the given NPC name
 ---@return number npcID ID of the NPC
 function DataModules:GetQuestIDsByNPCName(npcName)
-    local normNPCName = normalizeTitle(npcName)
     local questIDs = {}
     local npcID = 0
 
@@ -562,7 +561,7 @@ function DataModules:GetQuestIDsByNPCName(npcName)
         local data = module.NPCNameLookupByNPCID
         if data then
             for key, val in pairs(data) do
-                if titlesMatch(val, normNPCName) then
+                if titlesMatch(val, npcName) then
                     npcID = key
                     Debug:Print("npcID: " .. npcID)
                 end
