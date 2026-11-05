@@ -5320,6 +5320,10 @@ class TTSProcessor(TTSEngine):
         file_name = f'{row["quest"]}-{row["source"]}' if row['quest'] else f'{row["templateText_race_gender_hash"]}'
         if row['player_gender'] is not None:
             file_name = row['player_gender'] + '-' + file_name
+        # Multi-speaker: prepend model-name prefix for quest audio filenames
+        if row.get('multi_name') is not None and row['multi_name'] != '':
+            if row.get('source') != 'gossip':
+                file_name = row['multi_name'] + '-' + file_name
         file_name = file_name + '.mp3'
         subfolder = 'quests' if row['quest'] else 'gossip'
         questgiver_id = row['id'] if row['id'] else None
