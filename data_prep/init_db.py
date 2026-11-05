@@ -1,4 +1,4 @@
-from data_prep.env_vars import MYSQL_HOST, MYSQL_PORT, MYSQL_PASSWORD, MYSQL_USER, MYSQL_DATABASE
+from data_prep.env_vars import MYSQL_HOST, MYSQL_PORT, MYSQL_PASSWORD, MYSQL_USER, MYSQL_DATABASE, MYSQL_PATH
 import pymysql
 import io
 import zipfile
@@ -11,6 +11,30 @@ import shutil
 import gzip
 import subprocess
 import pandas as pd
+
+def check_db_exists(db_name):
+    # Подключаемся к серверу ВООБЩЕ, без указания database=...
+    connection = pymysql.connect(
+        host=MYSQL_HOST,
+        user=MYSQL_USER,
+        password=MYSQL_PASSWORD,
+        port=int(MYSQL_PORT)
+    )
+    
+    try:
+        with connection.cursor() as cursor:
+            # Выполняем запрос на поиск базы по имени
+            cursor.execute(f"SHOW DATABASES LIKE '{db_name}'")
+            result = cursor.fetchone()
+            
+            if result:
+                print(f"База '{db_name}' найдена.")
+                return True
+            else:
+                print(f"База '{db_name}' отсутствует.")
+                return False
+    finally:
+        connection.close()
 
 def init_db():
     ACORE_DB_DUMP_URL = "https://github.com/azerothcore/azerothcore-wotlk/archive/refs/heads/master.zip"
@@ -28,20 +52,25 @@ def init_db():
     TEMP_DIR = "temp_wotlk_db"
     EXTRACTED_DIR = os.path.join(TEMP_DIR, "extracted")
     os.makedirs(EXTRACTED_DIR, exist_ok=True)
-
-    url = ACORE_DB_DUMP_URL
-    # --- Step 1: Download ---
-    print(f"📥 Downloading {url} ...", flush = True)
-    session = requests.Session()
-    retries = Retry(total=5, backoff_factor=1, status_forcelist=[502, 503, 504])
-    session.mount("https://", HTTPAdapter(max_retries=retries))
-
-    resp = session.get(url, stream=True, timeout=30)
-    resp.raise_for_status()
     zip_path = os.path.join(TEMP_DIR, "dump.zip")
-    with open(zip_path, "wb") as f:
-        for chunk in resp.iter_content(8192):
-            f.write(chunk)
+
+    # Skip if manually put file
+    if not os.path.exists("wotlk-db/azerothcore-wotlk-master.zip"):
+        url = ACORE_DB_DUMP_URL
+        # --- Step 1: Download ---
+        print(f"📥 Downloading {url} ...", flush = True)
+        session = requests.Session()
+        retries = Retry(total=5, backoff_factor=1, status_forcelist=[502, 503, 504])
+        session.mount("https://", HTTPAdapter(max_retries=retries))
+
+        resp = session.get(url, stream=True, timeout=30)
+        resp.raise_for_status()
+        with open(zip_path, "wb") as f:
+            for chunk in resp.iter_content(8192):
+                f.write(chunk)
+
+    if os.path.exists("wotlk-db/azerothcore-wotlk-master.zip"):
+        zip_path = os.path.join("wotlk-db/azerothcore-wotlk-master.zip")
 
     # --- Step 2: Extract ---
     print("📂 Extracting...", flush = True)
@@ -84,7 +113,7 @@ def init_db():
     print(f"✅ Found {len(sql_files)} SQL file(s)")
     # Combine drop + create into one command
     cmd = (
-        f'mysql -h {MYSQL_HOST} -u {MYSQL_USER} -p{MYSQL_PASSWORD} '
+        f'{MYSQL_PATH} -h {MYSQL_HOST} -P {MYSQL_PORT} -u {MYSQL_USER} -p{MYSQL_PASSWORD} '
         f'-e "DROP DATABASE IF EXISTS {MYSQL_DATABASE}; CREATE DATABASE {MYSQL_DATABASE};"'
     )
 
@@ -105,7 +134,7 @@ def init_db():
                 shutil.copyfileobj(gz_in, out_f)
             sql_file = unzipped
 
-        import_cmd = (f'mysql -h {MYSQL_CONTAINER} -u {DB_USER} -p{DB_PASSWORD} {DB_NAME} < "{sql_file}"')
+        import_cmd = (f'{MYSQL_PATH} -h {MYSQL_HOST} -P {MYSQL_PORT} -u {DB_USER} -p{DB_PASSWORD} {DB_NAME} < "{sql_file}"')
 
         try:
             subprocess.run(import_cmd, shell=True, check=True)
@@ -137,6 +166,7 @@ def init_db():
     # Connect to MySQL
     conn = pymysql.connect(
         host=MYSQL_HOST,
+        port=int(MYSQL_PORT),
         user=MYSQL_USER,
         password=MYSQL_PASSWORD,
         database=MYSQL_DATABASE,
