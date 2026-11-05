@@ -16,3 +16,4 @@ AI_VoiceOver_All.zip
 /wowvo_client/__pycache__
 /wowvo_client_omnivoice/__pycache__
 /corrections/__pycache__
+*.code-workspace
