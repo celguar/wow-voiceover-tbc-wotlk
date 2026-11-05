@@ -5097,6 +5097,11 @@ class TTSProcessor(TTSEngine):
         df['gender'] = df['DisplaySexID'].map(GENDER_DICT)
         df['voice_name'] = df['race'] + '_' + df['gender']
 
+        # Multi-speaker: model-name-based speaker key for multi-speaker NPCs.
+        # For Forsaken, keep 'scourge_male'/'scourge_female' — in-game model
+        # is scourge_male.m2, not forsaken_male.m2.
+        df['multi_name'] = df['voice_name'].copy()
+
         df['zone'] = df['zone'].fillna('Unknown')
 
         df['templateText_race_gender'] = df['original_text'] + df['race'] + df['gender']
@@ -5287,10 +5292,11 @@ class TTSProcessor(TTSEngine):
             protect=0.25
     ):
         row = pd.Series(row_tuple[1:], index=row_tuple._fields[1:])
-        # if row['voice_name'].endswith("_dk"):
-        #    voice_name = f'{row["voice_name"][:-3]}'
-        # else:
-        voice_name = f'{row["voice_name"]}'
+        # Strip '_dk' suffix for DK voice samples — they are stored under the base voice name
+        if row['voice_name'].endswith("_dk"):
+            voice_name = f'{row["voice_name"][:-3]}'
+        else:
+            voice_name = f'{row["voice_name"]}'
 
         custom_message = ""
         if "$" in row["cleanedText"] or "<" in row["cleanedText"] or ">" in row["cleanedText"]:
@@ -5342,6 +5348,100 @@ class TTSProcessor(TTSEngine):
                 for row, custom_message in zip(df.iterrows(), executor.map(row_proccesing_fn, df.itertuples())):
                     pbar.set_postfix_str(custom_message)
                     pbar.update(1)
+
+    # --- Multi-speaker table writers ---
+
+    def write_multispeaker_quest_table(self, df, module_name, source_type, filename):
+        """Write MultiSpeakerQuests table for a given quest source (accept/complete/progress)."""
+        output_file = self.output_folder + f"/{filename}.lua"
+        multispeaker_table = {}
+
+        quest_df = df[(df['source'] == source_type) & (df['multi_name'].notna()) & (df['multi_name'] != '') & (df['quest'] != '')]
+
+        for _, row in tqdm(quest_df.iterrows(), total=len(quest_df), desc=f"MultiSpeaker {source_type}"):
+            quest_id = int(row['quest'])
+            voicename = row['multi_name']
+
+            # Strip '_dk' suffix — DK voice samples are stored under the base voice name
+            if voicename.endswith('_dk'):
+                voicename = voicename[:-3]
+
+            if source_type not in multispeaker_table:
+                multispeaker_table[source_type] = {}
+            if quest_id not in multispeaker_table[source_type]:
+                multispeaker_table[source_type][quest_id] = {}
+
+            multispeaker_table[source_type][quest_id][voicename] = voicename
+
+        with open(output_file, 'w', encoding='UTF-8') as f:
+            f.write(DATAMODULE_TABLE_GUARD_CLAUSE + '\n')
+            f.write(f'{module_name}.{filename} = ')
+            f.write(lua.encode(multispeaker_table))
+            f.write('\n')
+
+        print(f'Finished writing {filename}.lua')
+
+    def write_multispeaker_questlog_table(self, df, module_name, filename):
+        """Write MultiSpeakerQuestLog table — default prefix per quest for questlog playback."""
+        output_file = self.output_folder + f"/{filename}.lua"
+        questlog_table = {}
+
+        accept_df = df[(df['source'] == 'accept') & (df['multi_name'].notna()) & (df['multi_name'] != '') & (df['quest'] != '')]
+
+        for _, row in tqdm(accept_df.iterrows(), total=len(accept_df), desc='MultiSpeaker QuestLog'):
+            quest_id = int(row['quest'])
+            voicename = row['multi_name']
+
+            # Strip '_dk' suffix
+            if voicename.endswith('_dk'):
+                voicename = voicename[:-3]
+
+            if quest_id not in questlog_table:
+                questlog_table[quest_id] = voicename
+
+        with open(output_file, 'w', encoding='UTF-8') as f:
+            f.write(DATAMODULE_TABLE_GUARD_CLAUSE + '\n')
+            f.write(f'{module_name}.{filename} = ')
+            f.write(lua.encode(questlog_table))
+            f.write('\n')
+
+        print(f'Finished writing {filename}.lua')
+
+    def write_multispeaker_gossip_table(self, df, module_name, filename):
+        """Write MultiSpeakerGossip table — per-NPC, per-speaker gossip hash lookup."""
+        output_file = self.output_folder + f"/{filename}.lua"
+        multispeaker_table = {}
+
+        gossip_df = df[(df['source'] == 'gossip') & (df['multi_name'].notna()) & (df['multi_name'] != '')]
+
+        for _, row in tqdm(gossip_df.iterrows(), total=len(gossip_df), desc='MultiSpeaker Gossip'):
+            npc_name = row['name']
+            voicename = row['multi_name']
+            gossip_hash = row['templateText_race_gender_hash']
+            escaped_text = row['text'].replace('"', "'").replace('\r', ' ').replace('\n', ' ')
+
+            # Strip '_dk' suffix
+            if voicename.endswith('_dk'):
+                voicename = voicename[:-3]
+
+            escaped_npc_name = npc_name.replace('"', "'").replace('\r', ' ').replace('\n', ' ')
+
+            if escaped_npc_name not in multispeaker_table:
+                multispeaker_table[escaped_npc_name] = {}
+            if voicename not in multispeaker_table[escaped_npc_name]:
+                multispeaker_table[escaped_npc_name][voicename] = {}
+
+            multispeaker_table[escaped_npc_name][voicename][escaped_text] = gossip_hash
+
+        with open(output_file, 'w', encoding='UTF-8') as f:
+            f.write(DATAMODULE_TABLE_GUARD_CLAUSE + '\n')
+            f.write(f'{module_name}.{filename} = ')
+            f.write(lua.encode(multispeaker_table))
+            f.write('\n')
+
+        print(f'Finished writing {filename}.lua')
+
+    # --- End multi-speaker table writers ---
 
     def write_gossip_file_lookups_table(self, df, module_name, type, table, filename):
         output_file = self.output_folder + f"/{filename}.lua"
@@ -5667,6 +5767,12 @@ class TTSProcessor(TTSEngine):
         self.write_npc_name_lookup_table(df, module_name, 'gameobject', 'ObjectNameLookupByObjectID',
                                          'object_name_lookups')
         self.write_npc_name_lookup_table(df, module_name, 'item', 'ItemNameLookupByItemID', 'item_name_lookups')
+
+        # --- Multi-speaker tables ---
+        for source in ['accept', 'complete', 'progress']:
+            self.write_multispeaker_quest_table(df, module_name, source, f'multispeaker_{source}')
+        self.write_multispeaker_questlog_table(df, module_name, 'multispeaker_questlog')
+        self.write_multispeaker_gossip_table(df, module_name, 'multispeaker_gossip')
 
         write_sound_length_table_lua(module_name, self.sound_output_folder, self.output_folder)
         print("Updated sound_length_table.lua")

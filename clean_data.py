@@ -89,9 +89,10 @@ def clean_quest_data(tts_processor):
 
 
     # Define the mapping of old values to new values
+    # NOTE: scourge_male/forsaken conversion intentionally removed.
+    # In-game model names are 'scourge_male.m2' / 'scourge_female.m2',
+    # and the multi-speaker lookup uses the actual model name.
     replace_map = {
-        'scourge_male': 'forsaken_male',
-        'scourge_female': 'forsaken_female',
         'icetroll_male': 'troll_male',
         'narrator_male': 'narrator',
         'taunka_male': 'tauren_male',
@@ -101,6 +102,12 @@ def clean_quest_data(tts_processor):
     # Apply the replacement
     df['voice_name'] = df['voice_name'].replace(replace_map)
 
+
+    # --- Multi-speaker support ---
+    # multi_name carries the in-game model name for multi-speaker NPCs.
+    # For Forsaken, keep 'scourge_male'/'scourge_female' because the
+    # in-game model is scourge_male.m2 (not forsaken_male.m2).
+    df['multi_name'] = df['voice_name'].copy()
 
     #correct some gossips that have nan for quest and quest_title
     df['quest'] = df.quest.fillna('')
