@@ -17,6 +17,39 @@ local HIDE_GOSSIP_OPTIONS = true -- Disable to allow gossip options to show up i
 local WAIT_FOR_ANIMATION_FINISH_BEFORE_IDLE = true
 local CAN_MODEL_LOAD_CACHE = Version:IsRetailOrAboveLegacyVersion(60000)
 
+-- Multi-speaker support
+local EventSuffixes = {
+    [Enums.SoundEvent.QuestAccept]   = "accept",
+    [Enums.SoundEvent.QuestComplete] = "complete",
+    [Enums.SoundEvent.QuestProgress] = "progress",
+}
+
+--- Determine if the current event should use a PlayerModel (for multi-speaker audio).
+---@param questID number|nil
+---@param event SoundEvent
+---@param npc_name string
+---@return boolean
+local function IsMultiSpeakerEvent(questID, event, npc_name)
+    local suffix = EventSuffixes[event] or "gossip"
+    local isQuestLogPlayback = (QuestLogFrame and QuestLogFrame:IsShown()) or (QuestMapFrame and QuestMapFrame:IsShown())
+
+    for _, module in DataModules:GetModules() do
+        -- Questlog overrides → use dressupmodel (not multispeaker)
+        if module.MultiSpeakerQuestLog and module.MultiSpeakerQuestLog[questID] and isQuestLogPlayback then
+            return false
+        end
+        -- Quest multispeaker → use playermodel
+        if module.MultiSpeakerQuests and module.MultiSpeakerQuests[suffix] and module.MultiSpeakerQuests[suffix][questID] then
+            return true
+        end
+        -- Gossip multispeaker → use playermodel
+        if module.MultiSpeakerGossip and module.MultiSpeakerGossip[npc_name] then
+            return true
+        end
+    end
+    return false
+end
+
 
 -- Helper to decide which animation to use
 local function GetTalkAnimationForModel(model)
@@ -280,7 +313,12 @@ function SoundQueueUI:InitPortrait()
                 self.model:HookScript("OnUpdate", function(self, elapsed)
                     -- If the creature wasn't cached - continuously retry setting the model until it succeeds
                     if CAN_MODEL_LOAD_CACHE and self.oldCreatureID and not self:GetModelFileID() then
-                        self:SetCreature(self.oldCreatureID)
+                        -- Use SetUnit for PlayerModel (multi-speaker), SetCreature for DressUpModel
+                        if self:GetObjectType() == "PlayerModel" and UnitExists("target") then
+                            self:SetUnit("target")
+                        else
+                            self:SetCreature(self.oldCreatureID)
+                        end
                         if not self:GetModelFileID() then
                             return
                         end
@@ -330,6 +368,17 @@ function SoundQueueUI:InitPortrait()
                 end)
             end
 
+            -- DYNAMIC SWITCH: Choose which model frame to activate based on data
+            if IsMultiSpeakerEvent(soundData.questID, soundData.event, soundData.name) then
+                dressUpModelFrame:Hide()
+                self.model = playerModelFrame
+            else
+                playerModelFrame:Hide()
+                self.model = dressUpModelFrame
+            end
+            -- If the addon core passed us an explicit frame override, respect it
+            self.model = soundData.modelFrame or self.model
+
             self.model:Show()
             self.book:Hide()
 
@@ -371,9 +420,15 @@ function SoundQueueUI:InitPortrait()
     self.frame.portrait.background:SetAllPoints()
     self.frame.portrait.background:SetTexture([[Interface\AddOns\AI_VoiceOver\Textures\PortraitFrameBackground]])
 
-    -- Create a 3D model
-    self.frame.portrait.model = CreateFrame("DressUpModel", nil, self.frame.portrait)
-    self.frame.portrait.defaultModel = self.frame.portrait.model
+    -- Create dual model frames for multi-speaker support
+    local dressUpModelFrame = CreateFrame("DressUpModel", nil, self.frame.portrait)
+    local playerModelFrame = CreateFrame("PlayerModel", nil, self.frame.portrait)
+    dressUpModelFrame:Hide()
+    playerModelFrame:Hide()
+
+    -- Default to dressupmodel
+    self.frame.portrait.model = dressUpModelFrame
+    self.frame.portrait.defaultModel = dressUpModelFrame
 
 
     -- Create a book icon replacement when the 3D portrait is unavailable

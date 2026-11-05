@@ -29,6 +29,9 @@ local LOAD_ALL_MODULES = true
 ---@field ObjectNameLookupByObjectID table<number, string> Maps GameObject ID to GameObject name
 ---@field ItemNameLookupByItemID table<number, string> Maps Item ID to Item name
 ---@field SoundLengthLookupByFileName table<string, number> Maps sound filenames to their duration in seconds
+---@field MultiSpeakerQuests table<string, table<number, table<string, string>>> Maps event suffixes to quest IDs, which map model names to audio prefixes
+---@field MultiSpeakerGossip table<string, table<string, string>> Maps NPC names with multiple speakers to correct audio hash (nested by model name)
+---@field MultiSpeakerQuestLog table<number, string> Maps quest IDs with multiple speakers to default audio prefix (for questlog playback)
 
 ---@class AvailableDataModule
 ---@field AddonName string Addon name
@@ -287,9 +290,40 @@ function DataModules:GetNPCGossipTextHash(soundData)
         npc = replaceDoubleQuotes(soundData.name)
     end
     local text = soundData.text
+    local npc_name = replaceDoubleQuotes(soundData.name)
 
     local text_entries = {}
 
+    -- Check multi-speaker gossip table first (uses NPC model name as speaker key)
+    if UnitExists("target") then
+        local tempModel = CreateFrame("PlayerModel")
+        tempModel:ClearModel()
+        tempModel:SetUnit("target")
+        local targetmodel = tempModel:GetModel()
+        if targetmodel and type(targetmodel) == "string" then
+            local speaker = string.match(targetmodel, "([^\\|^/]+)%.m2$")
+            if speaker then
+                for _, module in self:GetModules() do
+                    local multidata = module.MultiSpeakerGossip
+                    if multidata and multidata[npc_name] and multidata[npc_name][speaker] then
+                        local npc_gossip_table = multidata[npc_name][speaker]
+                        for text, hash in pairs(npc_gossip_table) do
+                            text_entries[text] = text_entries[text] or
+                                hash -- Respect module priority, don't overwrite the entry if there is already one
+                        end
+                    end
+                end
+            end
+        end
+    end
+
+    -- If we found a match in the multi-speaker table, return early
+    if text_entries[text] then
+        local best_result = FuzzySearchBestKeys(text, text_entries)
+        return best_result and best_result.value
+    end
+
+    -- Fall back to standard gossip lookup
     for _, module in self:GetModules() do
         local data = module[table]
         if data then
@@ -445,12 +479,54 @@ function DataModules:GetObjectName(type, id)
     end
 end
 
+--- Determine the correct filename for a quest event, supporting multi-speaker overrides.
+---@param soundData SoundData
+---@param suffix string Event suffix ("accept", "progress", "complete", or "gossip")
+---@return string fileName
+function DataModules:GetQuestFileName(soundData, suffix)
+    local questID = soundData.questID
+    local isQuestLogPlayback = (QuestLogFrame and QuestLogFrame:IsShown()) or (QuestMapFrame and QuestMapFrame:IsShown())
+
+    -- Questlog playback: use default prefix lookup from MultiSpeakerQuestLog
+    if isQuestLogPlayback then
+        for _, module in self:GetModules() do
+            local data = module.MultiSpeakerQuestLog
+            if data and data[questID] then
+                return format("%s-%d-%s", data[questID], questID, suffix)
+            end
+        end
+        return format("%d-%s", questID, suffix)
+    end
+
+    -- In-world: extract NPC model name from target and look up speaker
+    if UnitExists("target") then
+        local tempModel = CreateFrame("PlayerModel")
+        tempModel:ClearModel()
+        tempModel:SetUnit("target")
+        local targetmodel = tempModel:GetModel()
+        if targetmodel and type(targetmodel) == "string" then
+            local speaker = string.match(targetmodel, "([^\\|^/]+)%.m2$")
+            if speaker then
+                for _, module in self:GetModules() do
+                    local data = module.MultiSpeakerQuests
+                    if data and data[suffix] and data[suffix][questID] and data[suffix][questID][speaker] then
+                        return format("%s-%d-%s", data[suffix][questID][speaker], questID, suffix)
+                    end
+                end
+            end
+        end
+    end
+
+    -- Fallback: default format
+    return format("%d-%s", questID, suffix)
+end
+
 ---@type table<SoundEvent, fun(soundData: SoundData): string|nil>
 local getFileNameForEvent =
 {
-    [Enums.SoundEvent.QuestAccept]   = function(soundData) return format("%d-%s", soundData.questID, "accept") end,
-    [Enums.SoundEvent.QuestProgress] = function(soundData) return format("%d-%s", soundData.questID, "progress") end,
-    [Enums.SoundEvent.QuestComplete] = function(soundData) return format("%d-%s", soundData.questID, "complete") end,
+    [Enums.SoundEvent.QuestAccept]   = function(soundData) return DataModules:GetQuestFileName(soundData, "accept") end,
+    [Enums.SoundEvent.QuestProgress] = function(soundData) return DataModules:GetQuestFileName(soundData, "progress") end,
+    [Enums.SoundEvent.QuestComplete] = function(soundData) return DataModules:GetQuestFileName(soundData, "complete") end,
     [Enums.SoundEvent.QuestGreeting] = function(soundData) return DataModules:GetNPCGossipTextHash(soundData) end,
     [Enums.SoundEvent.Gossip]        = function(soundData) return DataModules:GetNPCGossipTextHash(soundData) end,
 }
