@@ -12,3 +12,7 @@ AI_VoiceOverData_WoTLK.zip
 wow_vo_webui.zip
 AI_VoiceOver_All.zip
 /AI_VoiceOver/wow-api-type-definitions
+/data_prep/__pycache__
+/wowvo_client/__pycache__
+/wowvo_client_omnivoice/__pycache__
+/corrections/__pycache__
