@@ -1024,9 +1024,12 @@ class GossipManager:
 
                 if re.search(r'\$[Gg]', row['cleanedText']):
                     two_genders_gossip = True
-                if not voice_map_narrator_gossip and row['two_speakers']:
+                if not voice_map_narrator_gossip and row['has_narrator']:
                     print(f"Narrator text detected")
                     voice_map_narrator_gossip = find_voice_sample('narrator')
+
+                if row['multi_name'] is not None and row['multi_name'] != '':
+                    print(f"Multi speaker detected")
 
                 is_vanilla_text = is_vanilla_broadcast_text(row['broadcast_text_id'], row['text'])
                 is_tbc_text = not is_vanilla_text and is_tbc_broadcast_text(row['broadcast_text_id'], row['text'])
@@ -4306,9 +4309,12 @@ with gr.Blocks(title="WoW Voiceover WebUI") as app:
                         voice_map_alt = find_voice_sample(alt_voice, alt_voice_type)
 
                     for _, row in quest_rows.iterrows():
-                        if row['two_speakers']:
+                        if row['has_narrator']:
                             print(f"Narrator text detected")
                             voice_map_narrator = find_voice_sample('narrator')
+
+                    if row['multi_name'] is not None and row['multi_name'] != '':
+                        print(f"Multi speaker detected")
 
                     # try check existing quest
                     if use_modded_quest_texts and current_q_id and current_q_id == q_id:
