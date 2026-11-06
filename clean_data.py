@@ -118,8 +118,6 @@ def clean_quest_data(tts_processor):
 
     # Define the mapping of old values to new values
     replace_map = {
-        'scourge_male': 'forsaken_male',
-        'scourge_female': 'forsaken_female',
         'icetroll_male': 'troll_male',
         'narrator_male': 'narrator',
         'taunka_male': 'tauren_male',
@@ -130,6 +128,29 @@ def clean_quest_data(tts_processor):
     df['voice_name'] = df['voice_name'].replace(replace_map)
 
     df['db_source'] = 'AzerothCore'
+
+    # --- Multi-speaker support ---
+    # Assign '_dk' suffix to DK voice rows so they get their own voice samples
+    df.loc[(df['id'] == 28406), 'voice_name'] = df.loc[(df['id'] == 28406), 'voice_name'] + "_dk"
+
+    # Detect rows where multiple different voice_names exist for the same
+    # quest+text (non-gossip) or gossip+text combination. These are the
+    # NPCs that share dialogue across different races/sexes.
+    df['multi_voice'] = None
+
+    non_gossip_mask = df['source'] != 'gossip'
+    df.loc[non_gossip_mask, 'multi_voice'] = df[non_gossip_mask].groupby(['quest', 'text'])['voice_name'].transform('nunique')
+
+    gossip_mask = df['source'] == 'gossip'
+    df.loc[gossip_mask, 'multi_voice'] = df[gossip_mask].groupby(['text', 'name'])['voice_name'].transform('nunique')
+
+    # For rows with multiple voices, multi_name = voice_name with underscores
+    # removed (e.g. 'human_male' stays 'human_male', 'bloodelf_female' stays
+    # 'bloodelffemale'). This is the in-game model name used for lookup.
+    # For all other rows, multi_name stays None — no prefix needed.
+    condition = (df['multi_voice'] > 1)
+    df['multi_name'] = None
+    df.loc[condition, 'multi_name'] = df.loc[condition, 'voice_name'].str.replace(r'_', '', regex=True)
 
     #correct some gossips that have nan for quest and quest_title
     df['quest'] = df.quest.fillna('')
