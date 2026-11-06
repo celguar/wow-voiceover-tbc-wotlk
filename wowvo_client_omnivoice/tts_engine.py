@@ -5943,6 +5943,7 @@ class TTSProcessor(TTSEngine):
             df_filtered = pd.DataFrame(rows)
 
         df_filtered['player_gender'] = None
+        df_filtered['multi_speaker'] = None  # track which multi_name this row is for
         rows = []
         for _, row in df_filtered.iterrows():
 
@@ -5974,6 +5975,32 @@ class TTSProcessor(TTSEngine):
 
         df_filtered = pd.DataFrame(rows)
 
+        # Multi-speaker splitting: for rows with multi_name, spawn one row per
+        # distinct multi_name value (like gender splitting but per-speaker).
+        # Each spawned row uses that speaker's voice_name for audio selection.
+        multi_rows = []
+        for _, row in df_filtered.iterrows():
+            multi_name = row.get('multi_name')
+            if multi_name is not None and multi_name != '':
+                # Find all rows with the same multi_name (same dialogue, different speakers)
+                matching = df_filtered[df_filtered['multi_name'] == multi_name]
+                # Only split if there are actually multiple different voice_names
+                # sharing this multi_name (i.e. true multi-speaker)
+                distinct_voices = matching['voice_name'].unique()
+                if len(distinct_voices) > 1:
+                    # Spawn one row per distinct voice_name for this multi_name
+                    for vname in distinct_voices:
+                        spawned = matching[matching['voice_name'] == vname].iloc[0].copy()
+                        spawned['multi_speaker'] = vname  # use original voice_name as speaker key
+                        multi_rows.append(spawned)
+                else:
+                    # Single voice for this multi_name — keep as-is
+                    multi_rows.append(row)
+            else:
+                multi_rows.append(row)
+
+        df_filtered = pd.DataFrame(multi_rows)
+
         print(f"Regenerating {len(df_filtered)} rows for quest {quest_id}...", flush=True)
 
         final_seed = random.randint(0, 2147483647) if randomize_seed else int(seed)
@@ -5984,11 +6011,16 @@ class TTSProcessor(TTSEngine):
             if row['player_gender'] is not None and isinstance(row['player_gender'], str):
                 file_name = row['player_gender'] + '-' + file_name
                 print(f"Generating {row['player_gender']} voice...")
+            # Multi-speaker: use multi_speaker as prefix for quest audio
+            if row.get('multi_speaker') is not None and row['multi_speaker'] != '':
+                file_name = row['multi_speaker'] + '-' + file_name
+                print(f"Generating multi-speaker audio for: {row['multi_speaker']}...")
             file_name = file_name + '.mp3'
 
             subfolder = 'quests' if row['quest'] else 'gossip'
             tts_text = row['cleanedText']
-            # voice_name = row['voice_name']
+            # Use multi_speaker voice_name for audio sample selection
+            current_voice_name = row.get('multi_speaker') or row['voice_name']
             questgiver_id = row['id']
 
             if voice_to_clone_2:
@@ -6015,7 +6047,7 @@ class TTSProcessor(TTSEngine):
                     self.output_folder = os.path.join(self.module_name, 'generated')
                     self.sound_output_folder = os.path.join(self.output_folder, 'sounds')
 
-            self.tts(tts_text, voice_name, voice_type, voice_to_clone, narrator_voice, file_name, subfolder, forceGen=force_gen, volume_match = volume_match, volume_match_sample = volume_match_sample,
+            self.tts(tts_text, current_voice_name, voice_type, voice_to_clone, narrator_voice, file_name, subfolder, forceGen=force_gen, volume_match = volume_match, volume_match_sample = volume_match_sample,
                      questgiver_id=questgiver_id, model_name=model_name, seed=final_seed, temperature=temperature,
                      class_temperature=class_temperature, speed=speed, cps=cps,
                      max_words_per_chunk=max_words_per_chunk, attention_type=attention_type,
@@ -6123,6 +6155,7 @@ class TTSProcessor(TTSEngine):
         two_genders = False
         narrator_voice = False
         df_filtered['player_gender'] = None
+        df_filtered['multi_speaker'] = None
         rows = []
         for _, row in df_filtered.iterrows():
             # use only selected text
@@ -6150,6 +6183,26 @@ class TTSProcessor(TTSEngine):
 
         df_filtered = pd.DataFrame(rows)
 
+        # Multi-speaker splitting for gossip: spawn one row per distinct
+        # voice_name sharing the same multi_name.
+        multi_rows = []
+        for _, row in df_filtered.iterrows():
+            multi_name = row.get('multi_name')
+            if multi_name is not None and multi_name != '':
+                matching = df_filtered[df_filtered['multi_name'] == multi_name]
+                distinct_voices = matching['voice_name'].unique()
+                if len(distinct_voices) > 1:
+                    for vname in distinct_voices:
+                        spawned = matching[matching['voice_name'] == vname].iloc[0].copy()
+                        spawned['multi_speaker'] = vname
+                        multi_rows.append(spawned)
+                else:
+                    multi_rows.append(row)
+            else:
+                multi_rows.append(row)
+
+        df_filtered = pd.DataFrame(multi_rows)
+
         print(f"Regenerating {len(df_filtered)} rows for NPC {npc_name}...", flush=True)
 
         final_seed = random.randint(0, 2147483647) if randomize_seed else int(seed)
@@ -6159,11 +6212,15 @@ class TTSProcessor(TTSEngine):
             file_name = f'{row["quest"]}-{row["source"]}' if row['quest'] else f'{row["templateText_race_gender_hash"]}'
             if row['player_gender'] is not None and isinstance(row['player_gender'], str):
                 file_name = row['player_gender'] + '-' + file_name
+            # Multi-speaker: use multi_speaker as prefix
+            if row.get('multi_speaker') is not None and row['multi_speaker'] != '':
+                file_name = row['multi_speaker'] + '-' + file_name
+                print(f"Generating multi-speaker gossip for: {row['multi_speaker']}...")
             file_name = file_name + '.mp3'
 
             subfolder = 'quests' if row['quest'] else 'gossip'
             tts_text = row['cleanedText']
-            voice_name = row['voice_name']
+            current_voice_name = row.get('multi_speaker') or row['voice_name']
             questgiver_id = row['id']
 
             if voice_to_clone_2:
@@ -6178,7 +6235,7 @@ class TTSProcessor(TTSEngine):
                 narrator_voice = None
 
 
-            self.tts(tts_text, voice_name, voice_type, voice_to_clone, voice_to_clone_2, file_name, subfolder, forceGen=force_gen, volume_match = volume_match, volume_match_sample = volume_match_sample,
+            self.tts(tts_text, current_voice_name, voice_type, voice_to_clone, voice_to_clone_2, file_name, subfolder, forceGen=force_gen, volume_match = volume_match, volume_match_sample = volume_match_sample,
                      questgiver_id=questgiver_id, model_name=model_name, seed=final_seed, temperature=temperature,
                      class_temperature=class_temperature, speed=speed, cps=cps,
                      max_words_per_chunk=max_words_per_chunk, attention_type=attention_type,
