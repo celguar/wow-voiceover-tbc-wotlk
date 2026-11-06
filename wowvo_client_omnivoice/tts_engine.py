@@ -3248,6 +3248,7 @@ def split_by_speakers_quotes(text):
     Process text with quotes.
     - "quotes" = NPC dialogue (speaker 1)
     - Everything else = narrator (speaker 2)
+    Returns: (processed_text, has_narrator)
     """
     # Find all quoted text
     quoted_matches = list(re.finditer(r'"([^"]+)"', text))
@@ -3313,6 +3314,7 @@ def split_by_speakers_brackets(text):
     """
     Convert text with <...> tags to speaker-separated format
     Example: "Hello <Something> bye" -> "[1]: Hello [2]: Something [1]: bye"
+    Returns: (processed_text, has_narrator)
     """
 
     has_brackets = bool(re.search(r'<[^>]+>', text))
@@ -4904,13 +4906,14 @@ class TTSProcessor(TTSEngine):
         # VibeVoice doesn't seem to understand numbers
         df[column_name] = df[column_name].apply(convert_numbers_to_words)
 
-        # add 2nd speaker (narrator) if needed
+        # Detect narrator text (brackets or quotes) if needed
+        df['has_narrator'] = False
         speakers_check = df[column_name].apply(split_by_speakers_brackets)
         df[column_name] = speakers_check.apply(lambda x: x[0])
-        df['two_speakers'] = df['two_speakers'] | speakers_check.apply(lambda x: x[1])
+        df['has_narrator'] = df['has_narrator'] | speakers_check.apply(lambda x: x[1])
         speakers_check_quotes = df[column_name].apply(split_by_speakers_quotes)
         df[column_name] = speakers_check_quotes.apply(lambda x: x[0])
-        df['two_speakers'] = df['two_speakers'] | speakers_check_quotes.apply(lambda x: x[1])
+        df['has_narrator'] = df['has_narrator'] | speakers_check_quotes.apply(lambda x: x[1])
 
         # deal with text in brackets: if its all the text for that NPC, keep the text, otherwise remove it
         df[column_name] = df[column_name].apply(clean_brackets)
@@ -5028,15 +5031,15 @@ class TTSProcessor(TTSEngine):
         # Convert numbers to words
         text = convert_numbers_to_words(text)
         
-        # Add 2nd speaker (narrator) from brackets
+        # Detect narrator text from brackets
         speakers_check = split_by_speakers_brackets(text)
         text = speakers_check[0]
-        two_speakers = speakers_check[1]
+        has_narrator = speakers_check[1]
         
-        # Add 2nd speaker from quotes
+        # Detect narrator text from quotes
         speakers_check_quotes = split_by_speakers_quotes(text)
         text = speakers_check_quotes[0]
-        two_speakers = two_speakers or speakers_check_quotes[1]
+        has_narrator = has_narrator or speakers_check_quotes[1]
         
         # Deal with text in brackets
         text = clean_brackets(text)
@@ -5121,14 +5124,14 @@ class TTSProcessor(TTSEngine):
         # convert laughter/sigh to omnivoice supported tags
         
 
-        # add 2nd speaker (narrator) if needed
-        df['two_speakers'] = False
+        # Detect narrator text (brackets or quotes) if needed
+        df['has_narrator'] = False
         speakers_check = df['cleanedText'].apply(split_by_speakers_brackets)
         df['cleanedText'] = speakers_check.apply(lambda x: x[0])
-        df['two_speakers'] = df['two_speakers'] | speakers_check.apply(lambda x: x[1])
+        df['has_narrator'] = df['has_narrator'] | speakers_check.apply(lambda x: x[1])
         speakers_check_quotes = df['cleanedText'].apply(split_by_speakers_quotes)
         df['cleanedText'] = speakers_check_quotes.apply(lambda x: x[0])
-        df['two_speakers'] = df['two_speakers'] | speakers_check_quotes.apply(lambda x: x[1])
+        df['has_narrator'] = df['has_narrator'] | speakers_check_quotes.apply(lambda x: x[1])
 
         # deal with text in brackets: if its all the text for that NPC, keep the text, otherwise remove it
         df['cleanedText'] = df['cleanedText'].apply(clean_brackets)
@@ -5827,7 +5830,7 @@ class TTSProcessor(TTSEngine):
                 print(f"tts_quest_auto: voice for {voice_name} ({voice_type}) not found!")
                 continue
 
-            if row['two_speakers']:
+            if row['has_narrator']:
                 narrator_sample = get_default_sample('narrator')
             else:
                 narrator_sample = None
@@ -6104,7 +6107,7 @@ class TTSProcessor(TTSEngine):
                 print(f"tts_quest_auto: voice for {voice_name} ({voice_type}) not found!")
                 continue
 
-            if row['two_speakers']:
+            if row['has_narrator']:
                 narrator_sample = get_default_sample('narrator')
             else:
                 narrator_sample = None
