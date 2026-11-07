@@ -1459,7 +1459,7 @@ class TTSEngine:
             except Exception as e:
                 print(f"⚠️ Failed to load emotion classifier: {e}")
                 self.emotion_classifier = False  # Mark as failed
-                return {'temperature': 5.0, 'class_temperature': 0.0, 'cfg_scale': 2.0, 'voice_speed_factor': 1.1, 'label': 'Default', 'score': 0}
+                return {'temperature': 5.0, 'class_temperature': 0.0, 'cfg_scale': 2.0, 'voice_speed_factor': 1.0, 'label': 'Default', 'score': 0}
 
          # Detect emotion
         try:
@@ -1533,7 +1533,7 @@ class TTSEngine:
                        diffusion_steps: int = 32, seed: int = 42, cfg_scale: float = 2.0,
                        use_sampling: bool = True, voice_to_clone=None, voice_to_clone_2=None, lora=None,
                        temperature: float = 5.0, class_temperature: float = 0.3,
-                       max_words_per_chunk: int = 75, voice_speed_factor: float = 1.1, cps = 15,
+                       max_words_per_chunk: int = 75, voice_speed_factor: float = 1.0, cps = 15,
                        voice_key = None, questgiver_id = None, apply_effects: bool = True, apply_effects_override: str = None, detect_emotions: bool = False, volume_match: bool = True):
         """Generate speech from text using VibeVoice"""
 
@@ -4746,7 +4746,7 @@ class TTSProcessor(TTSEngine):
             return self.voice_presets[module_name][voice_name]
 
     def tts(self, text, voice_name, voice_type, voice_to_clone, voice_to_clone_2, output_name, output_subfolder, forceGen=False, volume_match=True, volume_match_sample=False, questgiver_id=None,
-            model_name="VibeVoice-1.5B", seed: int = 42, temperature=5.0, class_temperature=0.3, speed=1.1, cps=15,
+            model_name="VibeVoice-1.5B", seed: int = 42, temperature=5.0, class_temperature=0.3, speed=1.0, cps=15,
             max_words_per_chunk=75, attention_type="auto",
             quantize_llm="full precision", free_memory=True, steps: int = 32,
             cfg_scale: float = 2.0, use_sampling: bool = False, apply_effects: bool = True, apply_effects_override: str = None, detect_emotions: bool = False
@@ -5284,7 +5284,7 @@ class TTSProcessor(TTSEngine):
             repetition_penalty=10.0,
             top_k=1,
             top_p=1.0,
-            speed=1.1,
+            speed=1.0,
             cps=15,
             f0_up_key=0,
             f0_method="rmvpe",
@@ -5572,7 +5572,7 @@ class TTSProcessor(TTSEngine):
 
     def tts_dataframe(self, df, selected_voices, expansions=[0, 1, 2], module_name=None,
                       temperature=0.75, length_penalty=1.0, repetition_penalty=10.0,
-                      top_k=1, top_p=1.0, speed=1.1, cps=15, f0_up_key=0, f0_method="rmvpe",
+                      top_k=1, top_p=1.0, speed=1.0, cps=15, f0_up_key=0, f0_method="rmvpe",
                       index_rate=0.70, filter_radius=3, resample_sr=0, rms_mix_rate=1,
                       protect=0.25):
         # Add specific codes for quests that need to be in the module search table so the audio for certain quests with the same name is found properly.
@@ -5850,7 +5850,7 @@ class TTSProcessor(TTSEngine):
                     "temperature": 4.0,
                     "class_temperature": 0.3,
                     "cfg_scale": 2.0,
-                    "speed": 1.1
+                    "speed": 1.0
                 }
 
             generate_check, a_exp, a_path, _ = self.tts_quest(df, quest_id, module_name, row['source'], force_gen=False, free_memory=False, voice_to_clone=voice_sample, voice_to_clone_2=narrator_sample, detect_emotions=False, seed=default_seed, randomize_seed=randomize_seed, volume_match_sample=volume_match_sample, voice_name=voice_name, voice_type=voice_type, **params)
@@ -5861,7 +5861,7 @@ class TTSProcessor(TTSEngine):
 
     def tts_quest(self, df, quest_id: str, module_name="AI_VoiceOverData_TBC",
                   spec=None, voice_to_clone=None, voice_to_clone_2=None, text_to_use = None,
-                  model_name="VibeVoice-1.5B", seed: int = 42, randomize_seed: bool = False, temperature=5.0, class_temperature=0.3, speed=1.1, cps=15,
+                  model_name="VibeVoice-1.5B", seed: int = 42, randomize_seed: bool = False, temperature=5.0, class_temperature=0.3, speed=1.0, cps=15,
                   max_words_per_chunk=75, attention_type="auto",
                   quantize_llm="full precision", free_memory=True, steps: int = 32,
                   cfg_scale: float = 2.0, use_sampling: bool = True, force_gen = False, volume_match = True, volume_match_sample = False, apply_effects = True, apply_effects_override = None, detect_emotions = False, voice_name = None, voice_type = None):
@@ -6127,7 +6127,7 @@ class TTSProcessor(TTSEngine):
         return generated_ok, a_path, generate_check
     
     def tts_gossip(self, df, module_name="AI_VoiceOverData_TBC", npc_name = None, voice_to_clone=None, voice_to_clone_2=None, cleaned_text_og=None, text_to_use=None,
-                  model_name="VibeVoice-1.5B", seed: int = 42, randomize_seed: bool = False, temperature=5.0, class_temperature=0.3, speed=1.1, cps=15,
+                  model_name="VibeVoice-1.5B", seed: int = 42, randomize_seed: bool = False, temperature=5.0, class_temperature=0.3, speed=1.0, cps=15,
                   max_words_per_chunk=75, attention_type="auto",
                   quantize_llm="full precision", free_memory=True, steps: int = 32,
                   cfg_scale: float = 2.0, use_sampling: bool = True, force_gen = False, volume_match = True, volume_match_sample = False, apply_effects = True, apply_effects_override = None, detect_emotions = False, voice_name = None, voice_type = None):

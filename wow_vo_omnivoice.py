@@ -3587,7 +3587,7 @@ with gr.Blocks(title="WoW Voiceover WebUI") as app:
                     with gr.Row():
                         voice_speed_factor = gr.Slider(
                             label="Voice Speed Factor", 
-                            minimum=0.8, maximum=1.5, value=1.1, step=0.01,
+                            minimum=0.8, maximum=1.5, value=1.0, step=0.01,
                             info="1.0 = normal speed, <1.0 = slower speed, >1.0 = faster speed."
                         )
                         voice_cps = gr.Slider(
@@ -4652,7 +4652,7 @@ with gr.Blocks(title="WoW Voiceover WebUI") as app:
                     with gr.Row():
                         voice_speed_factor_gossip = gr.Slider(
                             label="Voice Speed Factor",
-                            minimum=0.8, maximum=1.5, value=1.1, step=0.01,
+                            minimum=0.8, maximum=1.5, value=1.0, step=0.01,
                             info="1.0 = normal speed, <1.0 = slower speed, >1.0 = faster speed."
                         )
                         voice_cps_gossip = gr.Slider(
