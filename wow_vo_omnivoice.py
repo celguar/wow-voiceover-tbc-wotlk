@@ -5448,6 +5448,258 @@ with gr.Blocks(title="WoW Voiceover WebUI") as app:
                     outputs=[seeds_table, status_text]
                 )
 
+        with gr.TabItem("CPS Analyzer"):
+            gr.Markdown("### Character Per Second (CPS) Analyzer")
+            gr.Markdown("Checks random quest audio samples across expansions and recommends an optimal CPS for TTS generation.")
+            
+            with gr.Group():
+                with gr.Row():
+                    btn_analyze_cps = gr.Button("📊 Analyze CPS", variant="primary")
+                    cps_status = gr.Textbox(label="📌 Status", interactive=False)
+            
+            with gr.Row():
+                cps_results_table = gr.Dataframe(
+                    headers=["Expansion", "Sample Count", "Min CPS", "Max CPS", "Avg CPS", "Median CPS", "Recommended CPS"],
+                    datatype=["str", "str", "str", "str", "str", "str", "str"],
+                    interactive=False,
+                    wrap=True,
+                    label="📊 Per-Expansion CPS Stats"
+                )
+            
+            with gr.Row():
+                cps_overall_table = gr.Dataframe(
+                    headers=["Metric", "Value"],
+                    datatype=["str", "str"],
+                    interactive=False,
+                    wrap=True,
+                    label="📈 Overall Summary"
+                )
+            
+            def analyze_cps(df):
+                """
+                Analyze CPS (characters per second) for random quest audio samples across expansions.
+                """
+                import json
+                import numpy as np
+                from faster_whisper import WhisperModel, BatchedInferencePipeline
+                from pathlib import Path
+                
+                expansion_map = {0: "Vanilla", 1: "TBC", 2: "WotLK", -88: "Vanilla Extra", -99: "TBC Extra"}
+                expansion_order = [0, -88, 1, 2]  # Vanilla, Vanilla Extra, TBC, WotLK
+                
+                # Filter to quests with valid expansion and source
+                working_df = df.copy()
+                quest_df = working_df[
+                    (working_df['source'].isin(['accept', 'complete', 'progress'])) &
+                    (working_df['expansion'].isin([0, -88, 1, 2])) &
+                    (working_df['cleanedText'].notna()) &
+                    (working_df['cleanedText'].str.len() > 0)
+                ].copy()
+                
+                if quest_df.empty:
+                    return (
+                        [["No quest data found", "", "", "", "", "", ""]],
+                        [["Error", "No quest data available in dataframe"]]
+                    )
+                
+                # # Load Whisper model (reuse pattern from tts_engine)
+                # whisper_model = None
+                # try:
+                #     whisper_model = WhisperModel(r"I:\voiceover\model\Faster-Whisper", device="cuda", compute_type="float16", local_files_only=True)
+                # except Exception as e:
+                #     return (
+                #         [["Whisper Error", "", "", "", "", "", ""]],
+                #         [["Error", f"Failed to load Whisper model: {str(e)}"]]
+                #     )
+                
+                def normalize_text(text):
+                    """Normalize text to minimize false positives."""
+                    if not text:
+                        return ""
+                    text = str(text).lower()
+                    text = re.sub(r'[^\w\s]', '', text)
+                    text = re.sub(r'\s+', ' ', text).strip()
+                    return text
+                
+                def get_audio_duration(audio_path):
+                    """Get audio duration using ffmpeg."""
+                    import subprocess
+                    try:
+                        result = subprocess.run(
+                            ['ffprobe', '-v', 'error', '-show_entries', 'format=duration', '-of', 'default=noprint_wrappers=1:nokey=1', audio_path],
+                            capture_output=True, text=True, timeout=10
+                        )
+                        duration = float(result.stdout.strip())
+                        return duration if duration > 0 else None
+                    except Exception:
+                        return None
+                
+                def find_quest_audio_file(q_id, q_type):
+                    """Find quest audio file, similar to TTSProcessor.find_quest_audio."""
+                    regular_filename = f"{q_id}-{q_type}.mp3"
+                    fallback_filename = f"m-{q_id}-{q_type}.mp3"
+                    results = {}
+                    
+                    def check_file(filename):
+                        for module in MODULE_NAMES:
+                            full_path = Path(ADDON_PATH) / module / "generated/sounds/quests" / filename
+                            if full_path.exists():
+                                results[module] = str(full_path)
+                        
+                        for module in MODULE_NAMES:
+                            out_path = Path(module) / "generated/sounds/quests" / filename
+                            if out_path.exists():
+                                results['Output'] = str(out_path)
+                        
+                        test_path = Path('Testing') / "generated/sounds/quests" / filename
+                        if test_path.exists():
+                            results['Testing'] = str(test_path)
+                        
+                        game_path = Path(VOICE_SAMPLE_PATH) / "GameVoice" / filename
+                        if game_path.exists():
+                            results['FromGame'] = str(game_path)
+                    
+                    check_file(fallback_filename)
+                    check_file(regular_filename)
+                    return results
+                
+                # Collect CPS data per expansion
+                all_results = []
+                per_expansion = {}
+                
+                for exp_val in expansion_order:
+                    exp_name = expansion_map.get(exp_val, f"Unknown({exp_val})")
+                    exp_df = quest_df[quest_df['expansion'] == exp_val]
+                    
+                    if exp_df.empty:
+                        per_expansion[exp_name] = []
+                        continue
+                    
+                    # Sample up to 10 random quests
+                    n_samples = min(10, len(exp_df))
+                    sampled = exp_df.sample(n=n_samples, random_state=42)
+                    cps_values = []
+                    
+                    for _, row in sampled.iterrows():
+                        quest_id = row['quest']
+                        source_type = row['source']
+                        tts_text = row['cleanedText']
+                        
+                        if not tts_text or str(tts_text).strip() == '':
+                            continue
+                        
+                        # Find audio file
+                        audio_files = find_quest_audio_file(int(quest_id), source_type)
+                        audio_path = None
+                        
+                        # Prefer Output, then modules, then Testing, then FromGame
+                        for key in ['AI_VoiceOverData_Vanilla', 'AI_VoiceOverData_VanillaExtra', 
+                                    'AI_VoiceOverData_TBC', 'AI_VoiceOverData_WoTLK']:
+                            if key in audio_files:
+                                audio_path = audio_files[key]
+                                break
+                        
+                        if not audio_path or not Path(audio_path).exists():
+                            continue
+                        
+                        # Get duration
+                        duration = get_audio_duration(audio_path)
+                        if duration is None or duration <= 0:
+                            continue
+                        
+                        # Get normalized text character count
+                        norm_text = normalize_text(tts_text)
+                        char_count = len(norm_text)
+                        
+                        if char_count > 0:
+                            cps = char_count / duration
+                            cps_values.append(cps)
+                            all_results.append({
+                                'expansion': exp_name,
+                                'quest_id': int(quest_id),
+                                'source': source_type,
+                                'chars': char_count,
+                                'duration': round(duration, 2),
+                                'cps': round(cps, 2)
+                            })
+                    
+                    per_expansion[exp_name] = cps_values
+                
+                # Build results table
+                results_rows = []
+                for exp_val in expansion_order:
+                    exp_name = expansion_map.get(exp_val, f"Unknown({exp_val})")
+                    cps_list = per_expansion.get(exp_name, [])
+                    
+                    if len(cps_list) == 0:
+                        results_rows.append([exp_name, "0", "N/A", "N/A", "N/A", "N/A", "N/A"])
+                        continue
+                    
+                    min_cps = min(cps_list)
+                    max_cps = max(cps_list)
+                    avg_cps = np.mean(cps_list)
+                    median_cps = np.median(cps_list)
+                    
+                    # Recommended: slightly below average to ensure comfortable pacing
+                    # Use a conservative estimate (e.g., avg minus one std dev, but not less than min)
+                    std_cps = np.std(cps_list) if len(cps_list) > 1 else 0
+                    recommended = max(avg_cps - std_cps * 0.5, min_cps)
+                    
+                    results_rows.append([
+                        exp_name,
+                        str(len(cps_list)),
+                        f"{min_cps:.2f}",
+                        f"{max_cps:.2f}",
+                        f"{avg_cps:.2f}",
+                        f"{median_cps:.2f}",
+                        f"{recommended:.2f}"
+                    ])
+                
+                # Overall summary
+                if all_results:
+                    all_cps = [r['cps'] for r in all_results]
+                    overall_avg = np.mean(all_cps)
+                    overall_median = np.median(all_cps)
+                    overall_std = np.std(all_cps)
+                    overall_min = min(all_cps)
+                    overall_max = max(all_cps)
+                    overall_recommended = max(overall_avg - overall_std * 0.5, overall_min)
+                    
+                    summary_rows = [
+                        ["Total Samples Analyzed", str(len(all_cps))],
+                        ["Overall Average CPS", f"{overall_avg:.2f}"],
+                        ["Overall Median CPS", f"{overall_median:.2f}"],
+                        ["Overall Min CPS", f"{overall_min:.2f}"],
+                        ["Overall Max CPS", f"{overall_max:.2f}"],
+                        ["Overall Std Dev", f"{overall_std:.2f}"],
+                        ["Recommended CPS (Conservative)", f"{overall_recommended:.2f}"],
+                        ["Recommended CPS (Average)", f"{overall_avg:.2f}"],
+                    ]
+                else:
+                    summary_rows = [["No data", "No samples found with valid audio files"]]
+                
+                return results_rows, summary_rows
+            
+            btn_analyze_cps.click(
+                fn=analyze_cps,
+                inputs=[df_state],
+                outputs=[cps_results_table, cps_overall_table]
+            )
+            
+            gr.Markdown("""
+**How to use:**
+1. First load your data using "Data preparation" tab
+2. Click "📊 Analyze CPS" to sample 10 random quests per expansion
+3. Review per-expansion stats and the recommended CPS value
+4. Use the recommended CPS in your TTS generation settings for natural-sounding speech
+
+**Note:** Requires audio files to exist in the addon generated folders. Samples are drawn from:
+- `AddOn/AI_VoiceOverData_Vanilla/generated/sounds/quests/`
+- `AddOn/AI_VoiceOverData_VanillaExtra/generated/sounds/quests/`
+- `AddOn/AI_VoiceOverData_TBC/generated/sounds/quests/`
+- `AddOn/AI_VoiceOverData_WoTLK/generated/sounds/quests/`
+            """)
+
         with gr.TabItem("Export Module & Lookup tables"):
             with gr.Group():
                 with gr.Row():
