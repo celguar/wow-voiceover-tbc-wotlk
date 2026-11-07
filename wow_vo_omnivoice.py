@@ -4402,7 +4402,7 @@ with gr.Blocks(title="WoW Voiceover WebUI") as app:
                         complete_npc_info_display: f" 🧐 NPC: {texts['complete_npc']} ({texts['complete_npc_id']}) | Voice: {texts['complete_voice']} {'('+texts['complete_voice_type']+')' if 'male' in texts['complete_voice'] else ''} {'effect: <b>'+texts['complete_voice_effect']+'</b>' if texts['complete_voice_effect'] else ''}",
                         progress_clean: gr.update(value=texts['progress'] or '', elem_classes = "text-vanilla-with-icon" if vanilla_different and module_n == MODULE_NAMES[1] else "text-normal"),
                         progress_raw: texts['progress_original'] or '',
-                        progress_npc_info_display: f" 🧐 NPC: {texts['progress_npc']} ({texts['progress_npc_id']}) | Voice: {texts['progress_voice']} {'('+texts['progress_voice_type']+')' if 'male' in texts['progress_voice'] else ''} {'effect: <b>'+texts['progress_voice_effect']+'</b>' if texts['progress_voice_effect'] else ''}",
+                        progress_npc_info_display: f" 🧐 NPC: None" if "progress_npc_id" not in texts else f" 🧐 NPC: {texts['progress_npc']} ({texts['progress_npc_id']}) | Voice: {texts['progress_voice']} {'('+texts['progress_voice_type']+')' if 'male' in texts['progress_voice'] else ''} {'effect: <b>'+texts['progress_voice_effect']+'</b>' if texts['progress_voice_effect'] else ''}",
                         a_p_og: get_audio_with_label(audio_accept, 'AI_VoiceOverData_Vanilla'),
                         a_p_vanilla: get_audio_with_label(audio_accept, 'AI_VoiceOverData_VanillaExtra'),
                         a_p_tbc: get_audio_with_label(audio_accept, 'AI_VoiceOverData_TBC'),
