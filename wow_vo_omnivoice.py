@@ -937,6 +937,7 @@ class GossipManager:
         gossip_df['voice_type'] = gossip_df['voice_type'].apply(extract_voice_type)
         updates = []
         two_genders_gossip = False
+        multispeaker_gossip = False
 
         gossip_df = gossip_df.sort_values('id')
 
@@ -1029,7 +1030,7 @@ class GossipManager:
                     voice_map_narrator_gossip = find_voice_sample('narrator')
 
                 if row['multi_name'] is not None and row['multi_name'] != '':
-                    print(f"Multi speaker detected")
+                    multispeaker_gossip = True
 
                 is_vanilla_text = is_vanilla_broadcast_text(row['broadcast_text_id'], row['text'])
                 is_tbc_text = not is_vanilla_text and is_tbc_broadcast_text(row['broadcast_text_id'], row['text'])
@@ -1121,6 +1122,7 @@ class GossipManager:
         updates.append(gr.update(value=get_default_sample('narrator') if voice_map_narrator_gossip else None))
         updates.append(gr.update(visible=bool(voice_map_narrator_gossip)))
         updates.append(gr.update(visible=bool(two_genders_gossip)))
+        updates.append(gr.update(visible=bool(multispeaker_gossip)))
         updates.append(gr.update(value=default_voice_sample if default_voice_sample else None))
 
         updates.append(gr.update(choices=voices_list, value=row_first['voice_name']))
@@ -3764,6 +3766,9 @@ with gr.Blocks(title="WoW Voiceover WebUI") as app:
                 with gr.Row(visible=False) as two_genders_indicator:
                     q_info_display_two_genders = gr.Markdown("### ️♂️♀️ <span style='color: red'>Two genders text detected</span>")
 
+                with gr.Row(visible=False) as multispeaker_indicator:
+                    q_info_display_multispeaker = gr.Markdown("### 🗣️🗣️ <span style='color: red'>Multiple speakers detected</span>")
+
                 with gr.Row(visible=False) as different_vanilla_indicator:
                     q_info_display_different_vanilla = gr.Markdown("### 🔰‼️ <span style='color: red'>Different Vanilla text detected</span>")
 
@@ -4238,6 +4243,7 @@ with gr.Blocks(title="WoW Voiceover WebUI") as app:
                     voices_types_used = set()
                     voices_used_for_defaults = {}
                     two_genders = False
+                    multispeaker = False
                     vanilla_different = False
                     # 1. Очищаем ввод: убираем лишние пробелы
                     search_val = str(q_id).strip()
@@ -4281,6 +4287,8 @@ with gr.Blocks(title="WoW Voiceover WebUI") as app:
                         s_type = str(row['source']).lower().strip()
                         if re.search(r'\$[Gg]', row['cleanedText']):
                             two_genders = True
+                        if row['multi_name'] is not None and row['multi_name'] != '':
+                            multispeaker = True
                         if 'vanilla_text' in df.columns and row['vanilla_text'] != 0:
                             vanilla_different = True
 
@@ -4402,6 +4410,7 @@ with gr.Blocks(title="WoW Voiceover WebUI") as app:
                         ),
                         narrator_indicator: gr.update(visible=bool(voice_map_narrator)),
                         two_genders_indicator: gr.update(visible=bool(two_genders)),
+                        multispeaker_indicator: gr.update(visible=bool(multispeaker)),
                         different_vanilla_indicator: gr.update(visible=bool(vanilla_different)),
                         quest_expansion_indicator: gr.update(visible=False),
                         q_info_display_expansion: gr.update(value=get_expansion_display(base_row['expansion'])),
@@ -4550,7 +4559,7 @@ with gr.Blocks(title="WoW Voiceover WebUI") as app:
                          complete_clean, progress_clean, accept_raw, complete_raw, progress_raw, a_p_og, a_p_vanilla,
                          a_p_tbc, a_p_wotlk, a_p_out, c_p_og, c_p_vanilla,
                          c_p_tbc, c_p_wotlk, c_p_out, p_p_og, p_p_vanilla, p_p_tbc, p_p_wotlk, p_p_out,
-                         v_sample_og, v_sample_vanilla, v_sample_tbc, v_sample_wotlk, v_sample_og_alt, v_sample_vanilla_alt, v_sample_tbc_alt, v_sample_wotlk_alt, v_sample_game, v_sample_game_alt, narrator_voices, n_sample_og, n_sample_vanilla, n_sample_tbc, n_sample_wotlk, selected_clone_paths_global['narrator'], narrator_indicator, two_genders_indicator, different_vanilla_indicator, quest_expansion_indicator, q_info_display_expansion, monitor_a, monitor_c, monitor_p, a_p_testing, c_p_testing, p_p_testing, accept_voice, accept_voice_type, complete_voice, complete_voice_type, progress_voice, progress_voice_type]
+                         v_sample_og, v_sample_vanilla, v_sample_tbc, v_sample_wotlk, v_sample_og_alt, v_sample_vanilla_alt, v_sample_tbc_alt, v_sample_wotlk_alt, v_sample_game, v_sample_game_alt, narrator_voices, n_sample_og, n_sample_vanilla, n_sample_tbc, n_sample_wotlk, selected_clone_paths_global['narrator'], narrator_indicator, two_genders_indicator, multispeaker_indicator, different_vanilla_indicator, quest_expansion_indicator, q_info_display_expansion, monitor_a, monitor_c, monitor_p, a_p_testing, c_p_testing, p_p_testing, accept_voice, accept_voice_type, complete_voice, complete_voice_type, progress_voice, progress_voice_type]
             )
             quest_id.submit(
                 fn=update_ui_from_id,
@@ -4560,7 +4569,7 @@ with gr.Blocks(title="WoW Voiceover WebUI") as app:
                          complete_clean, progress_clean, accept_raw, complete_raw, progress_raw, a_p_og, a_p_vanilla,
                          a_p_tbc, a_p_wotlk, a_p_out, c_p_og, c_p_vanilla,
                          c_p_tbc, c_p_wotlk, c_p_out, p_p_og, p_p_vanilla, p_p_tbc, p_p_wotlk, p_p_out,
-                         v_sample_og, v_sample_vanilla, v_sample_tbc, v_sample_wotlk, v_sample_og_alt, v_sample_vanilla_alt, v_sample_tbc_alt, v_sample_wotlk_alt, v_sample_game, v_sample_game_alt, narrator_voices, n_sample_og, n_sample_vanilla, n_sample_tbc, n_sample_wotlk, selected_clone_paths_global['narrator'], narrator_indicator, two_genders_indicator, different_vanilla_indicator, quest_expansion_indicator, q_info_display_expansion, monitor_a, monitor_c, monitor_p, a_p_testing, c_p_testing, p_p_testing, accept_voice, accept_voice_type, complete_voice, complete_voice_type, progress_voice, progress_voice_type]
+                         v_sample_og, v_sample_vanilla, v_sample_tbc, v_sample_wotlk, v_sample_og_alt, v_sample_vanilla_alt, v_sample_tbc_alt, v_sample_wotlk_alt, v_sample_game, v_sample_game_alt, narrator_voices, n_sample_og, n_sample_vanilla, n_sample_tbc, n_sample_wotlk, selected_clone_paths_global['narrator'], narrator_indicator, two_genders_indicator, multispeaker_indicator, different_vanilla_indicator, quest_expansion_indicator, q_info_display_expansion, monitor_a, monitor_c, monitor_p, a_p_testing, c_p_testing, p_p_testing, accept_voice, accept_voice_type, complete_voice, complete_voice_type, progress_voice, progress_voice_type]
             )
             accept_voice_change.click(
                 fn=update_voice_sample_quest,
@@ -4811,6 +4820,9 @@ with gr.Blocks(title="WoW Voiceover WebUI") as app:
                 with gr.Row(visible=False) as two_genders_indicator_gossip:
                     npc_info_display_two_genders = gr.Markdown("### ️♂️♀️ <span style='color: red'>Two genders text detected</span>")
 
+                with gr.Row(visible=False) as multispeaker_indicator_gossip:
+                    npc_info_display_multispeaker = gr.Markdown("### 🗣️🗣️ <span style='color: red'>Multiple speakers detected</span>")
+
             with gr.Group() as gossip_group:
                 manager = GossipManager()
                 manager.create_ui(df_state)
@@ -4846,6 +4858,7 @@ with gr.Blocks(title="WoW Voiceover WebUI") as app:
                 all_outputs.append(manager.monitors_global_gossip['narrator'])
                 all_outputs.append(narrator_indicator_gossip)
                 all_outputs.append(two_genders_indicator_gossip)
+                all_outputs.append(multispeaker_indicator_gossip)
                 all_outputs.append(manager.monitors_gossip['npc'])
                 all_outputs.append(gossip_voice)
                 all_outputs.append(gossip_voice_type)

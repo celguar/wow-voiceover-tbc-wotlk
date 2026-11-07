@@ -5725,6 +5725,12 @@ class TTSProcessor(TTSEngine):
                                          'object_name_lookups')
         self.write_npc_name_lookup_table(df, module_name, 'item', 'ItemNameLookupByItemID', 'item_name_lookups')
 
+        # --- Multi-speaker tables ---
+        for source in ['accept', 'complete', 'progress']:
+            self.write_multispeaker_quest_table(df, module_name, source, f'multispeaker_{source}')
+        self.write_multispeaker_questlog_table(df, module_name, 'multispeaker_questlog')
+        self.write_multispeaker_gossip_table(df, module_name, 'multispeaker_gossip')
+
         write_sound_length_table_lua(module_name, self.sound_output_folder, self.output_folder)
         print("Updated sound_length_table.lua")
 
