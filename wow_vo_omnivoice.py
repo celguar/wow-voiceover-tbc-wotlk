@@ -1369,8 +1369,22 @@ def select_columns_ttszone(df, selected_zone, remove_bad_rows=False, check_bad_r
                     return f'✅{f"👎" if result and result['decision'] == "REGENERATE" else ''}'
 
             # accept aready generated
+            # if audio.get('Output'):
+            #     return f'☑️{f"♻️" if audio.get('Testing') and testing_module_match else ''}'
+            # elif audio.get('Testing') and testing_module_match:
+            #     return f'♻️'
+
             if audio.get('Output'):
-                return f'☑️{f"♻️" if audio.get('Testing') and testing_module_match else ''}'
+                result = None
+                if check_bad_rows:
+                    okcheck, result = tts_processor.evaluate_and_register_quest(row['quest'], row['source'], audio.get('Output'), row['Text'], remove_bad_rows)
+                    if result['decision'] == "REGENERATE":
+                        print(f"   Status: [{result['decision']}] | WER: {result['wer']*100}% | Reason: {result['reason']}")
+
+                    if remove_bad_rows and result['decision'] == "REGENERATE":
+                        return f'🗑️ 👎'
+                
+                return f'☑️{f"♻️" if audio.get('Testing') and testing_module_match else ''}{f"👎" if result and result['decision'] == "REGENERATE" else ''}'
             elif audio.get('Testing') and testing_module_match:
                 return f'♻️'
 
@@ -1697,8 +1711,22 @@ def select_columns_ttszone_gossip(df, selected_zone, remove_bad_rows=False, chec
                     return f'✅{f"👎" if result and result['decision'] == "REGENERATE" else ''}'
 
             # accept aready generated
+            # if audio.get('Output'):
+            #     return f'☑️{f"♻️" if audio.get('Testing') and testing_module_match else ''}'
+            # elif audio.get('Testing') and testing_module_match:
+            #     return f'♻️'
+
             if audio.get('Output'):
-                return f'☑️{f"♻️" if audio.get('Testing') and testing_module_match else ''}'
+                result = None
+                if check_bad_rows:
+                    okcheck, result = tts_processor.evaluate_and_register_gossip(row['npc_name'], row['hash'], audio.get('Output'), row['Text'], remove_bad_rows)
+                    if result['decision'] == "REGENERATE":
+                        print(f"   Status: [{result['decision']}] | WER: {result['wer']*100}% | Reason: {result['reason']}")
+
+                    if remove_bad_rows and result['decision'] == "REGENERATE":
+                        return f'🗑️ 👎'
+                    
+                return f'☑️{f"♻️" if audio.get('Testing') and testing_module_match else ''}{f"👎" if result and result['decision'] == "REGENERATE" else ''}'
             elif audio.get('Testing') and testing_module_match:
                 return f'♻️'
 

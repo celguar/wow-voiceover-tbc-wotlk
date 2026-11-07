@@ -4290,7 +4290,7 @@ class TTSProcessor(TTSEngine):
         # 6. Apply Decision Boundaries
         # WER > 0.15 (15% missed words) or CER > 0.08 (8% missed characters)
         # If OmniVoice stutters, adds robotic clicks, or skips lines, these spike.
-        if error_rate_word > 0.15 or error_rate_char > 0.8:
+        if label == "bad" or label == "mediocre":
             decision = "REGENERATE"
             reason = "Acoustic glitch or text mismatch detected."
         else:
@@ -5847,8 +5847,8 @@ class TTSProcessor(TTSEngine):
             params = {}
             if self.should_regenerate_quest(quest_id, row['source']):
                     params = {
-                    "temperature": 4.0,
-                    "class_temperature": 0.3,
+                    "temperature": 5.0,
+                    "class_temperature": 0.0,
                     "cfg_scale": 2.0,
                     "speed": 1.0
                 }
@@ -6120,7 +6120,17 @@ class TTSProcessor(TTSEngine):
 
             print(f"generating auto for npc {npc_name}")
 
-            generate_check, a_exp, a_path, _ = self.tts_gossip(df, module_name, npc_name, force_gen=False, free_memory=False, voice_to_clone=voice_sample, voice_to_clone_2=narrator_sample, detect_emotions=False, seed=default_seed, randomize_seed=randomize_seed, volume_match_sample=volume_match_sample, text_to_use=row['cleanedText'], cleaned_text_og=row['cleanedText'], voice_name=voice_name, voice_type=voice_type)
+            # check if is problematic
+            params = {}
+            if self.should_regenerate_gossip(npc_name, row['templateText_race_gender_hash']):
+                params = {
+                "temperature": 5.0,
+                "class_temperature": 0.0,
+                "cfg_scale": 2.0,
+                "speed": 1.0
+                }
+
+            generate_check, a_exp, a_path, _ = self.tts_gossip(df, module_name, npc_name, force_gen=False, free_memory=False, voice_to_clone=voice_sample, voice_to_clone_2=narrator_sample, detect_emotions=False, seed=default_seed, randomize_seed=randomize_seed, volume_match_sample=volume_match_sample, text_to_use=row['cleanedText'], cleaned_text_og=row['cleanedText'], voice_name=voice_name, voice_type=voice_type, **params)
             if generate_check != None:
                 generated_ok = True
         
