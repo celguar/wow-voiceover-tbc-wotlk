@@ -4237,6 +4237,18 @@ class TTSProcessor(TTSEngine):
         # Collapse multiple spaces into one
         text = re.sub(r'\s+', ' ', text).strip()
         return text
+
+    def has_duplicate_words(self, transcription: str) -> bool:
+        words = transcription.lower().split()
+        for i in range(len(words) - 1):
+            if words[i] == words[i + 1]:
+                return True
+        # проверка повторов фраз из 2–3 слов
+        for n in (2, 3):
+            for i in range(len(words) - n):
+                if words[i:i+n] == words[i+n:i+2*n]:
+                    return True
+        return False
     
     def evaluate_quality_label(self, wer, cer, thresholds=None):
         if thresholds is None:
@@ -4272,6 +4284,14 @@ class TTSProcessor(TTSEngine):
         # 3. Clean both texts
         clean_ref = self.normalize_text_before_check(reference_text)
         clean_trans = self.normalize_text_before_check(transcription)
+
+        # Avoid double words
+        if (self.has_duplicate_words(clean_trans) and not self.has_duplicate_words(clean_ref)):
+            return {
+                "wer": 1.0, "cer": 1.0, "decision": "REGENERATE", 
+                "reason": "Double words",
+                "label": "bad"
+            }
         
         # 4. Handle empty edge case (Whisper hallucinated absolute silence or failed completely)
         if not clean_trans:
